@@ -39,13 +39,22 @@ class MemoryDatabaseService {
     return this.getSSHConnection(id)!;
   }
 
-  // 获取单个 SSH 连接配置
-  getSSHConnection(id: string): SSHConnection | undefined {
+  // 获取单个 SSH 连接配置（从内存 DB 中获取加密版本，不解密）
+  private getEncryptedSSHConnection(id: string): any | undefined {
     for (const userConnections of Object.values(memoryDB)) {
       const found = userConnections.find((c) => c.id === id);
       if (found) {
-        return this.decryptConnection(found);
+        return found;
       }
+    }
+    return undefined;
+  }
+
+  // 获取单个 SSH 连接配置（解密）
+  getSSHConnection(id: string): SSHConnection | undefined {
+    const found = this.getEncryptedSSHConnection(id);
+    if (found) {
+      return this.decryptConnection(found);
     }
     return undefined;
   }
@@ -58,10 +67,13 @@ class MemoryDatabaseService {
 
   // 更新 SSH 连接配置
   updateSSHConnection(id: string, updates: UpdateSSHConnection): SSHConnection | undefined {
-    const existing = this.getSSHConnection(id);
-    if (!existing) {
+    const encryptedExisting = this.getEncryptedSSHConnection(id);
+    if (!encryptedExisting) {
       return undefined;
     }
+
+    // 获取解密后的现有连接
+    const existing = this.decryptConnection(encryptedExisting);
 
     const now = Date.now();
     const updatedConnection: any = {
@@ -71,23 +83,47 @@ class MemoryDatabaseService {
       updated_at: now,
     };
 
-    if (updatedConnection.password && updatedConnection.password !== existing.password) {
-      updatedConnection.password = encrypt(updatedConnection.password);
+    // 重新加密敏感字段
+    const encryptedToStore: any = {
+      ...updatedConnection,
+    };
+
+    // 只加密更改过的字段
+    if (updates.password !== undefined) {
+      if (updates.password) {
+        encryptedToStore.password = encrypt(updates.password);
+      } else {
+        delete encryptedToStore.password;
+      }
+    } else if (encryptedExisting.password) {
+      encryptedToStore.password = encryptedExisting.password;
     }
 
-    if (updatedConnection.private_key && updatedConnection.private_key !== existing.private_key) {
-      updatedConnection.private_key = encrypt(updatedConnection.private_key);
+    if (updates.private_key !== undefined) {
+      if (updates.private_key) {
+        encryptedToStore.private_key = encrypt(updates.private_key);
+      } else {
+        delete encryptedToStore.private_key;
+      }
+    } else if (encryptedExisting.private_key) {
+      encryptedToStore.private_key = encryptedExisting.private_key;
     }
 
-    if (updatedConnection.passphrase && updatedConnection.passphrase !== existing.passphrase) {
-      updatedConnection.passphrase = encrypt(updatedConnection.passphrase);
+    if (updates.passphrase !== undefined) {
+      if (updates.passphrase) {
+        encryptedToStore.passphrase = encrypt(updates.passphrase);
+      } else {
+        delete encryptedToStore.passphrase;
+      }
+    } else if (encryptedExisting.passphrase) {
+      encryptedToStore.passphrase = encryptedExisting.passphrase;
     }
 
     // 找到并替换旧的连接
     for (const userId in memoryDB) {
       const index = memoryDB[userId].findIndex((c) => c.id === id);
       if (index !== -1) {
-        memoryDB[userId][index] = updatedConnection;
+        memoryDB[userId][index] = encryptedToStore;
         break;
       }
     }
@@ -118,8 +154,8 @@ class MemoryDatabaseService {
     for (const userId in memoryDB) {
       const connection = memoryDB[userId].find((c) => c.id === id);
       if (connection) {
-        connection.last_used_at = now;
-        connection.updated_at = now;
+        (connection as any).last_used_at = now;
+        (connection as any).updated_at = now;
         break;
       }
     }
@@ -130,15 +166,27 @@ class MemoryDatabaseService {
     const decrypted: any = { ...row };
 
     if (decrypted.password) {
-      decrypted.password = decrypt(decrypted.password);
+      try {
+        decrypted.password = decrypt(decrypted.password);
+      } catch (e) {
+        // 可能已经是解密后的（旧数据），保持原样
+      }
     }
 
     if (decrypted.private_key) {
-      decrypted.private_key = decrypt(decrypted.private_key);
+      try {
+        decrypted.private_key = decrypt(decrypted.private_key);
+      } catch (e) {
+        // 可能已经是解密后的（旧数据），保持原样
+      }
     }
 
     if (decrypted.passphrase) {
-      decrypted.passphrase = decrypt(decrypted.passphrase);
+      try {
+        decrypted.passphrase = decrypt(decrypted.passphrase);
+      } catch (e) {
+        // 可能已经是解密后的（旧数据），保持原样
+      }
     }
 
     return decrypted as SSHConnection;
