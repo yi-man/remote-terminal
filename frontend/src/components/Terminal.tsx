@@ -3,6 +3,8 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Toolbar } from './Toolbar';
+import { useWebSocket } from '../hooks/useWebSocket';
+import { useUserId } from '../hooks/useUserId';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalProps {
@@ -14,7 +16,22 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const [connected, setConnected] = useState(false);
+  const userId = useUserId();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const { connected, connecting, connect, disconnect, sendData, resize } = useWebSocket({
+    userId,
+    connectionId,
+    onConnected: () => {
+      setErrorMessage(null);
+    },
+    onData: (data) => {
+      xtermRef.current?.write(data);
+    },
+    onError: (error) => {
+      setErrorMessage(error);
+    },
+  });
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -40,27 +57,20 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     xtermRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
-    // 模拟连接
-    setTimeout(() => {
-      terminal.writeln('\x1b[1;32m✓ Connected successfully!\x1b[0m');
-      terminal.writeln('Welcome to Remote Terminal');
-      terminal.writeln('');
-      terminal.write('$ ');
-      setConnected(true);
-    }, 500);
-
     terminal.onData((data) => {
-      terminal.write(data);
-      if (data === '\r') {
-        terminal.write('\n$ ');
-      }
+      sendData(data);
     });
 
     const handleResize = () => {
       fitAddon.fit();
+      if (connected) {
+        resize(terminal.rows, terminal.cols);
+      }
     };
 
     window.addEventListener('resize', handleResize);
+
+    connect(terminal.rows, terminal.cols);
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -78,42 +88,63 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
       case 'cmd':
         break;
       case 'esc':
-        terminal.write('\x1b');
+        sendData('\x1b');
         break;
       case 'tab':
-        terminal.write('\t');
+        sendData('\t');
         break;
       case 'up':
-        terminal.write('\x1b[A');
+        sendData('\x1b[A');
         break;
       case 'down':
-        terminal.write('\x1b[B');
+        sendData('\x1b[B');
         break;
       case 'left':
-        terminal.write('\x1b[D');
+        sendData('\x1b[D');
         break;
       case 'right':
-        terminal.write('\x1b[C');
+        sendData('\x1b[C');
         break;
     }
+  };
+
+  const handleDisconnect = () => {
+    disconnect();
+    onDisconnect();
+  };
+
+  const getStatusText = () => {
+    if (errorMessage) return '连接失败';
+    if (connected) return '已连接';
+    if (connecting) return '连接中...';
+    return '未连接';
   };
 
   return (
     <div className="flex flex-col h-full bg-gray-900">
       <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-yellow-500'}`} />
+          <div className={`w-2 h-2 rounded-full ${
+          errorMessage ? 'bg-red-500' :
+          connected ? 'bg-green-500' :
+          'bg-yellow-500'
+        }`} />
           <span className="text-gray-300 text-sm">
-            {connected ? '已连接' : '连接中...'}
+            {getStatusText()}
           </span>
         </div>
         <button
-          onClick={onDisconnect}
+          onClick={handleDisconnect}
           className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
         >
           断开
         </button>
       </div>
+      {errorMessage && (
+        <div className="px-4 py-2 bg-red-900/50 border-b border-red-700">
+          <p className="text-red-300 text-sm">{errorMessage}</p>
+        </div>
+      )}
       <div ref={terminalRef} className="flex-1" />
       <Toolbar onKeyPress={handleKeyPress} />
     </div>
