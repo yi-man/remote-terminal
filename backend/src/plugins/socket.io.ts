@@ -4,6 +4,18 @@ import { db } from '../services/database-memory';
 import { SSHClient } from '../services/ssh';
 import { sessionManager } from '../services/session-manager';
 
+interface ConnectSSHData {
+  userId: string;
+  connectionId: string;
+  rows?: number;
+  cols?: number;
+}
+
+interface ResizeData {
+  rows: number;
+  cols: number;
+}
+
 export async function socketIoPlugin(app: FastifyInstance) {
   await app.register(fastifySocketIO, {
     cors: {
@@ -12,14 +24,14 @@ export async function socketIoPlugin(app: FastifyInstance) {
     },
   });
 
-  app.io.on('connection', (socket) => {
+  (app as any).io.on('connection', (socket: any) => {
     console.log('Socket connected:', socket.id);
 
     socket.on('disconnect', () => {
       console.log('Socket disconnected:', socket.id);
     });
 
-    socket.on('connect-ssh', async ({ userId, connectionId, rows, cols }) => {
+    socket.on('connect-ssh', async ({ userId, connectionId, rows, cols }: ConnectSSHData) => {
       try {
         console.log(`Connecting SSH for user ${userId}, connection ${connectionId}`);
 
@@ -107,7 +119,7 @@ function setupSocketListeners(socket: any, sshClient: SSHClient) {
     sshClient.write(data);
   });
 
-  socket.on('resize', ({ rows, cols }) => {
+  socket.on('resize', ({ rows, cols }: ResizeData) => {
     sshClient.resize(rows, cols);
   });
 
