@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { db } from '../services/database-memory';
+import { db } from '../services/database';
 import type { CreateSSHConnection, UpdateSSHConnection } from '../types';
 
 const createConnectionSchema = z.object({
