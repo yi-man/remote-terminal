@@ -16,6 +16,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const isDisposedRef = useRef<boolean>(false);
   const userId = useUserId();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -62,9 +63,16 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     });
 
     const handleResize = () => {
-      fitAddon.fit();
-      if (connected) {
-        resize(terminal.rows, terminal.cols);
+      // 检查 terminal 是否还存在且有效
+      if (!isDisposedRef.current && fitAddonRef.current && xtermRef.current) {
+        try {
+          fitAddonRef.current.fit();
+          if (connected) {
+            resize(xtermRef.current.rows, xtermRef.current.cols);
+          }
+        } catch (error) {
+          console.error('FitAddon error:', error);
+        }
       }
     };
 
@@ -73,7 +81,13 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     connect(terminal.rows, terminal.cols);
 
     return () => {
+      isDisposedRef.current = true;
       window.removeEventListener('resize', handleResize);
+      // 清理引用，避免访问已销毁对象
+      xtermRef.current = null;
+      fitAddonRef.current = null;
+      // 先断开 socket 连接，再清理终端
+      disconnect();
       terminal.dispose();
     };
   }, [connectionId]);
@@ -109,7 +123,11 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   };
 
   const handleDisconnect = () => {
+    // 立即标记为已废弃，防止后续操作
+    isDisposedRef.current = true;
     disconnect();
+    // 直接调用 onDisconnect 导航回列表页面
+    // 这样可以避免在组件仍然存在时尝试访问已废弃的 terminal 对象
     onDisconnect();
   };
 

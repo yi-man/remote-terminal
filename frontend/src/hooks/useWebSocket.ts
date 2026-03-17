@@ -69,6 +69,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       socketRef.current.disconnect();
       socketRef.current = null;
       setConnected(false);
+      setConnecting(false);
     }
   }, []);
 
