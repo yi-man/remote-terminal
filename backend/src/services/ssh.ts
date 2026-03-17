@@ -25,6 +25,8 @@ export class SSHClient {
   private onDataHandler: SSHDataHandler | null = null;
   private onErrorHandler: SSHErrorHandler | null = null;
   private connected: boolean = false;
+  private outputBuffer: string = '';
+  private readonly MAX_BUFFER_SIZE = 100000; // 100KB max buffer
 
   async connect(options: SSHConnectOptions): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -59,8 +61,16 @@ export class SSHClient {
           this.connected = true;
 
           channel.on('data', (data: Buffer) => {
+            const str = data.toString();
+            // Add to buffer
+            this.outputBuffer += str;
+            // Limit buffer size to prevent memory issues
+            if (this.outputBuffer.length > this.MAX_BUFFER_SIZE) {
+              this.outputBuffer = this.outputBuffer.slice(-this.MAX_BUFFER_SIZE);
+            }
+            // Call the user handler if set
             if (this.onDataHandler) {
-              this.onDataHandler(data.toString());
+              this.onDataHandler(str);
             }
           });
 
@@ -112,6 +122,10 @@ export class SSHClient {
 
   isConnected(): boolean {
     return this.connected;
+  }
+
+  getOutputBuffer(): string {
+    return this.outputBuffer;
   }
 
   async destroy(): Promise<void> {
