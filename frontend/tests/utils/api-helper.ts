@@ -29,14 +29,23 @@ export class APIHelper {
   }
 
   async getConnections() {
-    return this.request('/connections');
+    const response = await this.request('/connections');
+    console.log('getConnections raw response:', response);
+    return response;
   }
 
   async createConnection(connection: any) {
-    return this.request('/connections', {
+    const response = await this.request('/connections', {
       method: 'POST',
       body: JSON.stringify(connection),
     });
+    console.log('createConnection raw response:', response);
+
+    if (response.success && response.data) {
+      return response.data;
+    }
+
+    return response;
   }
 
   async deleteConnection(id: string) {
