@@ -121,10 +121,10 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900">
+    <div data-testid="terminal-page" className="flex flex-col h-full bg-gray-900">
       <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${
+          <div data-testid="connection-status" className={`w-2 h-2 rounded-full ${
           errorMessage ? 'bg-red-500' :
           connected ? 'bg-green-500' :
           'bg-yellow-500'
@@ -141,11 +141,11 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
         </button>
       </div>
       {errorMessage && (
-        <div className="px-4 py-2 bg-red-900/50 border-b border-red-700">
+        <div data-testid="error-message" className="px-4 py-2 bg-red-900/50 border-b border-red-700">
           <p className="text-red-300 text-sm">{errorMessage}</p>
         </div>
       )}
-      <div ref={terminalRef} className="flex-1" />
+      <div data-testid="terminal-container" ref={terminalRef} className="flex-1" />
       <Toolbar onKeyPress={handleKeyPress} />
     </div>
   );
