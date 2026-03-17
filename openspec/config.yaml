@@ -1,6 +1,7 @@
 schema: spec-driven
 
 context: |
+  语言：中文（简体）   所有产出物都用简体中文
   Tech stack: Node.js, Typescript, React, Socket.IO, xterm.js, SQLite
   目标: 适合手机端的 Terminal
   核心功能: SSH连接管理
@@ -10,3 +11,4 @@ rules:
     - 先与用户讨论需求，再生成文档
   tasks:
     - 任务粒度控制在2小时内可完成
+    - 测试驱动，每个场景都得有集成测试
