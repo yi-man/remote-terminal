@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useUserId } from '../hooks/useUserId';
 import { useSSHConnections } from '../hooks/useSSHConnections';
 import { ConnectionList } from '../components/ConnectionList';
@@ -28,12 +28,12 @@ export function ConnectionListPage() {
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between px-4 py-4 bg-gray-800 border-b border-gray-700">
         <h1 className="text-xl font-bold text-white">Remote Terminal</h1>
-        <Link
-          to="/create"
+        <button
+          onClick={() => navigate('/create')}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
         >
           + 新连接
-        </Link>
+        </button>
       </div>
       <div className="flex-1 overflow-auto">
         <ConnectionList

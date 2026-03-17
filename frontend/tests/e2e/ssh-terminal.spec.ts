@@ -7,15 +7,14 @@ test.describe('SSH Terminal', () => {
   const TEST_USER_ID = 'playwright-test-user-id';
 
   test.beforeEach(async ({ page }) => {
-    // Set the same user ID in localStorage
-    await page.goto('/');
-    await page.evaluate((userId) => {
-      localStorage.setItem('user_id', userId);
-    }, TEST_USER_ID);
-
     // Clean up before each test
     const helper = new APIHelper(TEST_USER_ID);
     await helper.cleanupAllConnections();
+
+    // Set the same user ID in localStorage
+    await page.addInitScript((userId) => {
+      localStorage.setItem('user_id', userId);
+    }, TEST_USER_ID);
   });
 
   test.afterAll(async () => {
@@ -25,13 +24,15 @@ test.describe('SSH Terminal', () => {
   });
 
   test('should be able to create a connection and see it on list', async ({ page }) => {
+    const uniqueName = `我的mac-${Date.now()}`;
+
     // Reload to ensure localStorage takes effect
     await page.goto('/');
 
     // Create connection via UI
     await page.click('button:has-text("+ 新连接")');
 
-    await page.fill('input[placeholder*="例如"]', TEST_CONNECTION.name);
+    await page.fill('input[placeholder*="例如"]', uniqueName);
     await page.fill('input[placeholder*="192.168"]', TEST_CONNECTION.host);
     await page.fill('input[placeholder="22"]', TEST_CONNECTION.port.toString());
     await page.fill('input[placeholder="username"]', TEST_CONNECTION.username);
@@ -40,7 +41,7 @@ test.describe('SSH Terminal', () => {
     await page.click('button:has-text("保存")');
 
     // Verify connection exists
-    await expect(page.locator(`text=${TEST_CONNECTION.name}`)).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(`text=${uniqueName}`)).toBeVisible({ timeout: 10000 });
     console.log('✅ Connection creation verified!');
   });
 });

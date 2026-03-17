@@ -7,14 +7,14 @@ test.describe("Connection CRUD", () => {
   const TEST_USER_ID = "playwright-test-user-id";
 
   test.beforeEach(async ({ page }) => {
+    // Clean up before each test
+    const helper = new APIHelper(TEST_USER_ID);
+    await helper.cleanupAllConnections();
+
     // 在页面加载前设置 localStorage 中的 user_id
     await page.addInitScript((userId) => {
       localStorage.setItem("user_id", userId);
     }, TEST_USER_ID);
-
-    // Clean up before each test
-    const helper = new APIHelper(TEST_USER_ID);
-    await helper.cleanupAllConnections();
   });
 
   test.afterAll(async () => {
@@ -24,6 +24,8 @@ test.describe("Connection CRUD", () => {
   });
 
   test("should create a new SSH connection", async ({ page }) => {
+    const uniqueName = `我的mac-${Date.now()}`;
+
     // Reload to ensure localStorage takes effect
     await page.goto("/");
 
@@ -31,7 +33,7 @@ test.describe("Connection CRUD", () => {
     await page.click('button:has-text("+ 新连接")');
 
     // Fill form - using placeholder or label selectors
-    await page.fill('input[placeholder*="例如"]', TEST_CONNECTION.name);
+    await page.fill('input[placeholder*="例如"]', uniqueName);
     await page.fill('input[placeholder*="192.168"]', TEST_CONNECTION.host);
     await page.fill('input[placeholder="22"]', TEST_CONNECTION.port.toString());
     await page.fill('input[placeholder="username"]', TEST_CONNECTION.username);
@@ -47,7 +49,7 @@ test.describe("Connection CRUD", () => {
 
     // Verify we're back to list and connection exists
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator(`text=${TEST_CONNECTION.name}`)).toBeVisible({
+    await expect(page.locator(`text=${uniqueName}`)).toBeVisible({
       timeout: 10000,
     });
   });
