@@ -1,9 +1,28 @@
 import Database from 'better-sqlite3';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { SSHConnection, CreateSSHConnection, UpdateSSHConnection } from '../types';
 import { encrypt, decrypt } from './crypto';
 
-const DB_PATH = './data/terminal.db';
+// 确保 data/ 目录存在
+const DATA_DIR = './data';
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// 根据环境变量或 NODE_ENV 选择数据库文件
+const DEFAULT_DB_FILENAMES: Record<string, string> = {
+  development: 'terminal-dev.db',
+  production: 'terminal.db',
+  test: 'terminal-test.db'
+};
+
+const env = process.env.NODE_ENV || 'development';
+const DB_FILENAME = process.env.DB_FILENAME ||
+  DEFAULT_DB_FILENAMES[env] || DEFAULT_DB_FILENAMES.development;
+
+const DB_PATH = path.join(DATA_DIR, DB_FILENAME);
 
 class DatabaseService {
   private db: Database.Database;
