@@ -9,24 +9,22 @@ import { useUserId } from '../hooks/useUserId';
 export function AppRoutes() {
   const userId = useUserId();
 
-  if (!userId) {
-    return (
-      <div className="flex items-center justify-center h-full bg-gray-900 text-white">
-        <div>加载中...</div>
-      </div>
-    );
-  }
-
   return (
     <BrowserRouter>
       <PageLayout>
-        <Routes>
-          <Route path="/" element={<ConnectionListPage />} />
-          <Route path="/create" element={<ConnectionCreatePage />} />
-          <Route path="/connections/:id/edit" element={<ConnectionEditPage />} />
-          <Route path="/connections/:id/terminal" element={<TerminalPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        {!userId ? (
+          <div className="flex items-center justify-center h-full bg-gray-900 text-white">
+            <div>加载中...</div>
+          </div>
+        ) : (
+          <Routes>
+            <Route path="/" element={<ConnectionListPage />} />
+            <Route path="/create" element={<ConnectionCreatePage />} />
+            <Route path="/connections/:id/edit" element={<ConnectionEditPage />} />
+            <Route path="/connections/:id/terminal" element={<TerminalPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        )}
       </PageLayout>
     </BrowserRouter>
   );

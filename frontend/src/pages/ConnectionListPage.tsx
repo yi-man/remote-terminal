@@ -7,7 +7,7 @@ import type { SSHConnection } from '../types';
 export function ConnectionListPage() {
   const userId = useUserId()!;
   const navigate = useNavigate();
-  const { connections, loading, error, createConnection, updateConnection, deleteConnection } =
+  const { connections, loading, error, deleteConnection } =
     useSSHConnections(userId);
 
   const handleConnect = (connection: SSHConnection) => {

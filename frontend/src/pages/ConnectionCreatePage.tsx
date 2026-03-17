@@ -2,15 +2,15 @@ import { useNavigate } from 'react-router-dom';
 import { useUserId } from '../hooks/useUserId';
 import { useSSHConnections } from '../hooks/useSSHConnections';
 import { ConnectionForm } from '../components/ConnectionForm';
-import type { CreateSSHConnection } from '../types';
+import type { CreateSSHConnection, UpdateSSHConnection } from '../types';
 
 export function ConnectionCreatePage() {
   const userId = useUserId()!;
   const navigate = useNavigate();
   const { createConnection } = useSSHConnections(userId);
 
-  const handleSubmit = async (data: CreateSSHConnection) => {
-    await createConnection({ ...data, user_id: userId });
+  const handleSubmit = async (data: CreateSSHConnection | UpdateSSHConnection) => {
+    await createConnection({ ...data, user_id: userId } as CreateSSHConnection);
     navigate('/');
   };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAPIClient } from '../api/client';
 import type { SSHConnection, CreateSSHConnection, UpdateSSHConnection } from '../types';
 
@@ -6,16 +6,22 @@ export function useSSHConnections(userId: string) {
   const [connections, setConnections] = useState<SSHConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
 
   const client = getAPIClient(userId);
 
   const fetchConnections = useCallback(async () => {
+    if (hasFetchedRef.current) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const data = await client.getSSHConnections();
       setConnections(data);
+      hasFetchedRef.current = true;
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -52,8 +58,10 @@ export function useSSHConnections(userId: string) {
   );
 
   useEffect(() => {
-    fetchConnections();
-  }, [fetchConnections]);
+    if (!hasFetchedRef.current && userId) {
+      fetchConnections();
+    }
+  }, [fetchConnections, userId]);
 
   return {
     connections,
