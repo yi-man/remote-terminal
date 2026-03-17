@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -25,6 +28,7 @@
     "vite": "^5.4.8",
     "tailwindcss": "^3.4.13",
     "postcss": "^8.4.47",
-    "autoprefixer": "^10.4.20"
+    "autoprefixer": "^10.4.20",
+    "@playwright/test": "^1.40.0"
   }
 }
