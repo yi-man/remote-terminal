@@ -1,7 +1,17 @@
 import fastify from 'fastify';
 import { connectionRoutes } from '../routes/connections';
+import Database from 'better-sqlite3';
+import path from 'path';
 
-describe('SSH Connections API', () => {
+// 清理测试数据库
+function clearDatabase() {
+  const DB_PATH = path.join('./data', 'terminal-test.db');
+  const db = new Database(DB_PATH);
+  db.exec('DELETE FROM ssh_connections');
+  db.close();
+}
+
+describe('SSH Connections API - Independent Tests', () => {
   let app: fastify.FastifyInstance;
   const TEST_USER_ID = 'test-user-123';
 
@@ -10,7 +20,12 @@ describe('SSH Connections API', () => {
     await connectionRoutes(app);
   });
 
+  beforeEach(() => {
+    clearDatabase();
+  });
+
   afterAll(async () => {
+    clearDatabase();
     await app.close();
   });
 
@@ -101,6 +116,22 @@ describe('SSH Connections API', () => {
       expect(body.details).toBeInstanceOf(Array);
       expect(body.details.length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('SSH Connections API - Workflow Tests', () => {
+  let app: fastify.FastifyInstance;
+  const TEST_USER_ID = 'workflow-test-user-123';
+
+  beforeAll(async () => {
+    app = fastify();
+    await connectionRoutes(app);
+    clearDatabase();
+  });
+
+  afterAll(async () => {
+    clearDatabase();
+    await app.close();
   });
 
   describe('Connection management workflow', () => {

@@ -18,7 +18,7 @@ const createConnectionSchema = z.object({
   theme: z.string().default('dark'),
 });
 
-const updateConnectionSchema = createConnectionSchema.partial();
+const updateConnectionSchema = createConnectionSchema.omit({ user_id: true }).partial();
 
 export async function connectionRoutes(app: FastifyInstance) {
   // 获取用户的所有连接

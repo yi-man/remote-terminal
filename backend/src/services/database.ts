@@ -149,16 +149,17 @@ class DatabaseService {
       updated_at: now,
     };
 
-    if (updatedConnection.password && updatedConnection.password !== existing.password) {
-      updatedConnection.password = encrypt(updatedConnection.password);
+    // 只加密用户明确传入的新值，避免比较逻辑问题
+    if (updates.password !== undefined) {
+      updatedConnection.password = encrypt(updates.password);
     }
 
-    if (updatedConnection.private_key && updatedConnection.private_key !== existing.private_key) {
-      updatedConnection.private_key = encrypt(updatedConnection.private_key);
+    if (updates.private_key !== undefined) {
+      updatedConnection.private_key = encrypt(updates.private_key);
     }
 
-    if (updatedConnection.passphrase && updatedConnection.passphrase !== existing.passphrase) {
-      updatedConnection.passphrase = encrypt(updatedConnection.passphrase);
+    if (updates.passphrase !== undefined) {
+      updatedConnection.passphrase = encrypt(updates.passphrase);
     }
 
     const stmt = this.db.prepare(`
