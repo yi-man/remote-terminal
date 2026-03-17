@@ -54,6 +54,22 @@ export async function socketIoPlugin(app: FastifyInstance) {
           socket.data.sessionId = existingSession.id;
           sessionManager.updateActivity(existingSession.id);
 
+          // First send any buffered output history
+          const buffer = sshClient.getOutputBuffer();
+          if (buffer) {
+            socket.emit('data', buffer);
+          }
+
+          // Register data handler for new socket
+          sshClient.onData((data) => {
+            socket.emit('data', data);
+          });
+
+          // Register error handler for new socket
+          sshClient.onError((error) => {
+            socket.emit('error', { message: error.message });
+          });
+
           setupSocketListeners(socket, sshClient);
           sshClient.resize(rows || 24, cols || 80);
 
@@ -125,5 +141,13 @@ function setupSocketListeners(socket: any, sshClient: SSHClient) {
 
   socket.on('disconnect', () => {
     const sessionId = socket.data.sessionId;
+  });
+
+  socket.on('kill-session', () => {
+    const sessionId = socket.data.sessionId;
+    if (sessionId) {
+      console.log(`Killing session ${sessionId}`);
+      sessionManager.removeSession(sessionId);
+    }
   });
 }
