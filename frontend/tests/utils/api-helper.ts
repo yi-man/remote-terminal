@@ -1,11 +1,9 @@
-import { TEST_USER_ID } from '../fixtures/test-data';
-
 const API_BASE = 'http://localhost:8080/api';
 
 export class APIHelper {
   private userId: string;
 
-  constructor(userId: string = TEST_USER_ID) {
+  constructor(userId: string = 'default-test-user') {
     this.userId = userId;
   }
 

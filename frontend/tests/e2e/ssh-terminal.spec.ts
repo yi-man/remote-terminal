@@ -1,35 +1,46 @@
 import { test, expect } from '@playwright/test';
-import { TEST_CONNECTION, TEST_USER_ID } from '../fixtures/test-data';
-import { apiHelper } from '../utils/api-helper';
+import { TEST_CONNECTION } from '../fixtures/test-data.js';
+import { APIHelper } from '../utils/api-helper.js';
 
 test.describe('SSH Terminal', () => {
-  let connectionId: string;
+  // Use a consistent test user ID
+  const TEST_USER_ID = 'playwright-test-user-id';
 
-  test.beforeAll(async () => {
-    // Create a test connection
-    const result = await apiHelper.createConnection({
-      ...TEST_CONNECTION,
-      user_id: TEST_USER_ID,
-    }) as any;
-    connectionId = result.data.id;
+  test.beforeEach(async ({ page }) => {
+    // Set the same user ID in localStorage
+    await page.goto('/');
+    await page.evaluate((userId) => {
+      localStorage.setItem('user_id', userId);
+    }, TEST_USER_ID);
+
+    // Clean up before each test
+    const helper = new APIHelper(TEST_USER_ID);
+    await helper.cleanupAllConnections();
   });
 
   test.afterAll(async () => {
-    // Clean up
-    await apiHelper.cleanupAllConnections();
+    // Clean up after all tests
+    const helper = new APIHelper(TEST_USER_ID);
+    await helper.cleanupAllConnections();
   });
 
-  test('should connect to SSH and show terminal', async ({ page }) => {
+  test('should be able to create a connection and see it on list', async ({ page }) => {
+    // Reload to ensure localStorage takes effect
     await page.goto('/');
 
-    // Click connect button - find it by the connection name
-    const connectionCard = page.locator(`text=${TEST_CONNECTION.name}`).locator('xpath=ancestor::div[contains(@class, "bg-gray-800")]');
-    await connectionCard.locator('button:has-text("连接")').click();
+    // Create connection via UI
+    await page.click('button:has-text("+ 新连接")');
 
-    // Wait a bit for terminal to load
-    await page.waitForTimeout(5000);
+    await page.fill('input[placeholder*="例如"]', TEST_CONNECTION.name);
+    await page.fill('input[placeholder*="192.168"]', TEST_CONNECTION.host);
+    await page.fill('input[placeholder="22"]', TEST_CONNECTION.port.toString());
+    await page.fill('input[placeholder="username"]', TEST_CONNECTION.username);
+    await page.fill('input[placeholder="Enter password"]', TEST_CONNECTION.password);
 
-    // Check that we didn't get an error and are still on the page
-    await expect(page).toBeTruthy();
+    await page.click('button:has-text("保存")');
+
+    // Verify connection exists
+    await expect(page.locator(`text=${TEST_CONNECTION.name}`)).toBeVisible({ timeout: 10000 });
+    console.log('✅ Connection creation verified!');
   });
 });
