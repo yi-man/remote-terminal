@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import fastifySocketIO from 'fastify-socket.io';
-import { db } from '../services/database-memory';
+import { db } from '../services/database';
 import { SSHClient } from '../services/ssh';
 import { sessionManager } from '../services/session-manager';
 
