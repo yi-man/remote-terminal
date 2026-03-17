@@ -1,0 +1,8 @@
+ignoredBuiltDependencies:
+  - cpu-features
+  - esbuild
+  - fastify-socket.io
+  - ssh2
+
+onlyBuiltDependencies:
+  - better-sqlite3

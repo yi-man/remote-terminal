@@ -10,7 +10,12 @@
     "test": "vitest",
     "test:run": "vitest run"
   },
-  "keywords": ["terminal", "ssh", "tmux", "remote"],
+  "keywords": [
+    "terminal",
+    "ssh",
+    "tmux",
+    "remote"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
