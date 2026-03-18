@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { CreateSSHConnection, UpdateSSHConnection } from '../types';
 
 // 与后端完全一致的验证 schema
 const baseConnectionSchema = z.object({

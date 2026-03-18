@@ -15,7 +15,6 @@ export function useWebSocket(options: UseWebSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [sessionReused, setSessionReused] = useState(false);
 
   const connect = useCallback((rows: number = 24, cols: number = 80) => {
     if (socketRef.current?.connected) {
@@ -38,9 +37,6 @@ export function useWebSocket(options: UseWebSocketOptions) {
 
     socket.on('connected', (data?: any) => {
       console.log('SSH connected', data);
-      if (data?.reused) {
-        setSessionReused(true);
-      }
       setConnected(true);
       setConnecting(false);
       onConnected?.();
