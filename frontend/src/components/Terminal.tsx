@@ -20,7 +20,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const userId = useUserId();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { connected, connecting, connect, disconnect, sendData, resize, killSession } = useWebSocket({
+  const { connected, connecting, reused, connect, disconnect, sendData, resize, killSession } = useWebSocket({
     userId,
     connectionId,
     onConnected: () => {
@@ -149,7 +149,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
 
   const getStatusText = () => {
     if (errorMessage) return '连接失败';
-    if (connected) return '已连接';
+    if (connected) return reused ? '已连接（复用）' : '已连接';
     if (connecting) return '连接中...';
     return '未连接';
   };
@@ -163,7 +163,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
           connected ? 'bg-green-500' :
           'bg-yellow-500'
         }`} />
-          <span className="text-gray-300 text-sm">
+          <span data-testid="connection-status-text" className="text-gray-300 text-sm">
             {getStatusText()}
           </span>
         </div>
