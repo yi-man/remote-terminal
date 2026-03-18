@@ -1,5 +1,5 @@
 // '/api/connections'  添加connection 请求体
-const ADD_CONNECTION_API_REQUEST = {
+export const ADD_CONNECTION_API_REQUEST = {
   name: "我的mac",
   host: "192.168.31.132",
   port: 22,

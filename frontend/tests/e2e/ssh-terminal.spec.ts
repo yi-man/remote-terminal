@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TEST_CONNECTION } from '../fixtures/test-data.js';
+import { TEST_CONNECTION } from '../fixtures/test-data';
 import { APIHelper } from '../utils/api-helper.js';
 
 test.describe('SSH Terminal', () => {
@@ -130,7 +130,7 @@ test.describe('SSH Terminal', () => {
     console.log('✅ SSH terminal reconnected successfully!');
 
     // 10. Check for any errors in console
-    const errors = [];
+    const errors: string[] = [];
     page.on('console', msg => {
       if (msg.type() === 'error') {
         errors.push(msg.text());

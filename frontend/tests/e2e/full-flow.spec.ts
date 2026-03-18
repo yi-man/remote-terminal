@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TEST_CONNECTION } from '../fixtures/test-data.js';
+import { TEST_CONNECTION } from '../fixtures/test-data';
 
 test.describe('Full E2E Flow', () => {
   // Use a consistent test user ID

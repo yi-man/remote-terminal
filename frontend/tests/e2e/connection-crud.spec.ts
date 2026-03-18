@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { TEST_CONNECTION } from "../fixtures/test-data.js";
+import { TEST_CONNECTION } from "../fixtures/test-data";
 import { APIHelper } from "../utils/api-helper.js";
 
 test.describe("Connection CRUD", () => {

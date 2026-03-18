@@ -1,24 +1,37 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: "./tests",
+  testMatch: ["api/**/*.spec.ts", "e2e/**/*.spec.ts"],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  workers: 1,
+  reporter: "html",
   use: {
-    baseURL: 'http://localhost:5173',
-    headless: false,
-    screenshot: 'only-on-failure',
-    video: 'on-first-retry',
+    baseURL: "http://localhost:5173",
+    headless: true,
+    screenshot: "only-on-failure",
+    video: "on-first-retry",
   },
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
     },
   ],
-  // Don't auto-start servers - user will start them manually
-  // webServer: [],
+  webServer: [
+    {
+      command: "pnpm dev -- --host 127.0.0.1 --port 5173",
+      url: "http://localhost:5173",
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
+      command: "pnpm -C ../backend dev",
+      url: "http://localhost:8080/health",
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+  ],
 });
