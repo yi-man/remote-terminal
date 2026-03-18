@@ -230,11 +230,12 @@ function setupSocketListeners(socket: any, sshClient: SSHClient) {
     // }
   });
 
-  socket.on('kill-session', () => {
+  socket.on('kill-session', (ack?: (payload: { ok: boolean }) => void) => {
     const sessionId = socket.data.sessionId;
     if (sessionId) {
       console.log(`Killing session ${sessionId}`);
       sessionManager.removeSession(sessionId);
     }
+    ack?.({ ok: true });
   });
 }

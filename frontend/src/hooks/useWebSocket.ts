@@ -90,10 +90,17 @@ export function useWebSocket(options: UseWebSocketOptions) {
     }
   }, []);
 
-  const killSession = useCallback(() => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('kill-session');
-    }
+  const killSession = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!socketRef.current?.connected) {
+        resolve();
+        return;
+      }
+
+      socketRef.current.emit('kill-session', () => {
+        resolve();
+      });
+    });
   }, []);
 
   useEffect(() => {

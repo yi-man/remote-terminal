@@ -141,11 +141,11 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     // 立即标记为已废弃，防止后续操作
     isDisposedRef.current = true;
     // 发送 kill-session 事件来真正终止 SSH 会话
-    killSession();
+    await killSession();
     // 断开 socket 连接
     disconnect();
     // 直接调用 onDisconnect 导航回列表页面
