@@ -33,6 +33,30 @@ describe('useSSHConnectionValidation', () => {
       }
     });
 
+    it('should reject invalid IPv4 address range', () => {
+      const invalidData = {
+        name: 'Test',
+        host: '999.999.999.999',
+        port: 22,
+        username: 'test',
+        auth_type: 'password',
+        password: '123456'
+      };
+      expect(createConnectionSchema.safeParse(invalidData).success).toBe(false);
+    });
+
+    it('should accept valid hostname', () => {
+      const validData = {
+        name: 'Test',
+        host: 'example.com',
+        port: 22,
+        username: 'test',
+        auth_type: 'password',
+        password: '123456'
+      };
+      expect(createConnectionSchema.safeParse(validData).success).toBe(true);
+    });
+
     it('should reject invalid port range', () => {
       const invalidData1 = {
         name: 'Test',
@@ -54,6 +78,35 @@ describe('useSSHConnectionValidation', () => {
 
       expect(createConnectionSchema.safeParse(invalidData1).success).toBe(false);
       expect(createConnectionSchema.safeParse(invalidData2).success).toBe(false);
+    });
+
+    it('should reject non-integer port', () => {
+      const invalidData = {
+        name: 'Test',
+        host: 'localhost',
+        port: 22.5,
+        username: 'test',
+        auth_type: 'password',
+        password: '123456'
+      };
+      expect(createConnectionSchema.safeParse(invalidData).success).toBe(false);
+    });
+
+    it('should reject invalid username format', () => {
+      const invalidData = {
+        name: 'Test',
+        host: 'localhost',
+        port: 22,
+        username: 'bad!user',
+        auth_type: 'password',
+        password: '123456'
+      };
+      const result = createConnectionSchema.safeParse(invalidData);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const usernameErrors = result.error.issues.filter(issue => issue.path[0] === 'username');
+        expect(usernameErrors.length).toBeGreaterThan(0);
+      }
     });
 
     it('should reject missing password when auth_type is password', () => {
@@ -136,6 +189,14 @@ describe('useSSHConnectionValidation', () => {
 
       const result = updateConnectionSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
+    });
+
+    it('should enforce auth_type and credential consistency in updates', () => {
+      const invalidData = {
+        auth_type: 'password',
+        password: ''
+      };
+      expect(updateConnectionSchema.safeParse(invalidData).success).toBe(false);
     });
   });
 

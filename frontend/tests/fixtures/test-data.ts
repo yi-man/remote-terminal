@@ -1,13 +1,14 @@
-// Import existing test data from the project
+import { ADD_CONNECTION_API_REQUEST } from '../../src/api/data/connection';
+
 export const TEST_CONNECTION = {
-  name: "我的mac",
-  host: "192.168.31.132",
-  port: 22,
-  username: "apple",
-  auth_type: "password" as const,
-  password: "xuxin",
-  private_key: "",
-  passphrase: "",
+  name: ADD_CONNECTION_API_REQUEST.name,
+  host: ADD_CONNECTION_API_REQUEST.host,
+  port: ADD_CONNECTION_API_REQUEST.port,
+  username: ADD_CONNECTION_API_REQUEST.username,
+  auth_type: ADD_CONNECTION_API_REQUEST.auth_type as 'password' | 'privateKey',
+  password: ADD_CONNECTION_API_REQUEST.password,
+  private_key: ADD_CONNECTION_API_REQUEST.private_key,
+  passphrase: ADD_CONNECTION_API_REQUEST.passphrase,
 };
 
 // Create a unique test user ID for testing
