@@ -97,7 +97,19 @@ export function useWebSocket(options: UseWebSocketOptions) {
         return;
       }
 
+      // Don't block UI forever if the websocket is unstable.
+      const timeoutMs = 1000;
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      }, timeoutMs);
+
       socketRef.current.emit('kill-session', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         resolve();
       });
     });
