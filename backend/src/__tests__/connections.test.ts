@@ -116,6 +116,168 @@ describe('SSH Connections API - Independent Tests', () => {
       expect(body.details).toBeInstanceOf(Array);
       expect(body.details.length).toBeGreaterThan(0);
     });
+
+    it('should reject invalid host format', async () => {
+      const invalidConnection = {
+        user_id: TEST_USER_ID,
+        name: 'Invalid Host',
+        host: 'invalid@host',
+        port: 22,
+        username: 'test',
+        auth_type: 'password',
+        password: 'testpassword'
+      };
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/connections',
+        headers: {
+          'x-user-id': TEST_USER_ID,
+          'Content-Type': 'application/json',
+        },
+        payload: invalidConnection,
+      });
+
+      expect(response.statusCode).toEqual(400);
+    });
+
+    it('should reject invalid port range', async () => {
+      const invalidConnection1 = {
+        user_id: TEST_USER_ID,
+        name: 'Invalid Port',
+        host: 'localhost',
+        port: 0,
+        username: 'test',
+        auth_type: 'password',
+        password: 'testpassword'
+      };
+
+      const invalidConnection2 = {
+        user_id: TEST_USER_ID,
+        name: 'Invalid Port',
+        host: 'localhost',
+        port: 65536,
+        username: 'test',
+        auth_type: 'password',
+        password: 'testpassword'
+      };
+
+      const response1 = await app.inject({
+        method: 'POST',
+        url: '/api/connections',
+        headers: {
+          'x-user-id': TEST_USER_ID,
+          'Content-Type': 'application/json',
+        },
+        payload: invalidConnection1,
+      });
+
+      const response2 = await app.inject({
+        method: 'POST',
+        url: '/api/connections',
+        headers: {
+          'x-user-id': TEST_USER_ID,
+          'Content-Type': 'application/json',
+        },
+        payload: invalidConnection2,
+      });
+
+      expect(response1.statusCode).toEqual(400);
+      expect(response2.statusCode).toEqual(400);
+    });
+
+    it('should reject missing password for password auth', async () => {
+      const invalidConnection = {
+        user_id: TEST_USER_ID,
+        name: 'Missing Password',
+        host: 'localhost',
+        port: 22,
+        username: 'test',
+        auth_type: 'password',
+        password: ''
+      };
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/connections',
+        headers: {
+          'x-user-id': TEST_USER_ID,
+          'Content-Type': 'application/json',
+        },
+        payload: invalidConnection,
+      });
+
+      expect(response.statusCode).toEqual(400);
+    });
+
+    it('should reject missing private key for privateKey auth', async () => {
+      const invalidConnection = {
+        user_id: TEST_USER_ID,
+        name: 'Missing Private Key',
+        host: 'localhost',
+        port: 22,
+        username: 'test',
+        auth_type: 'privateKey',
+        private_key: ''
+      };
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/connections',
+        headers: {
+          'x-user-id': TEST_USER_ID,
+          'Content-Type': 'application/json',
+        },
+        payload: invalidConnection,
+      });
+
+      expect(response.statusCode).toEqual(400);
+    });
+  });
+
+  describe('PUT /api/connections', () => {
+    it('should reject invalid field values in updates', async () => {
+      // First create a valid connection
+      const validConnection = {
+        user_id: TEST_USER_ID,
+        name: 'Valid Connection',
+        host: 'localhost',
+        port: 22,
+        username: 'test',
+        auth_type: 'password',
+        password: 'testpassword'
+      };
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/api/connections',
+        headers: {
+          'x-user-id': TEST_USER_ID,
+          'Content-Type': 'application/json',
+        },
+        payload: validConnection,
+      });
+
+      const createdData = JSON.parse(createResponse.payload);
+      const connectionId = createdData.data.id;
+
+      // Try to update with invalid port
+      const invalidUpdate = {
+        port: 0
+      };
+
+      const updateResponse = await app.inject({
+        method: 'PUT',
+        url: `/api/connections/${connectionId}`,
+        headers: {
+          'x-user-id': TEST_USER_ID,
+          'Content-Type': 'application/json',
+        },
+        payload: invalidUpdate,
+      });
+
+      expect(updateResponse.statusCode).toEqual(400);
+    });
   });
 });
 

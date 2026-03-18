@@ -31,7 +31,7 @@ export const createConnectionSchema = baseConnectionSchema.refine(data => {
   path: ['auth_type']
 });
 
-export const updateConnectionSchema = createConnectionSchema.partial()
+export const updateConnectionSchema = baseConnectionSchema.partial()
   .refine(data => {
     if (data?.auth_type === 'password') {
       return data.password === undefined || (!!data.password && data.password.trim().length > 0);
