@@ -18,9 +18,12 @@ export function useWebSocket(options: UseWebSocketOptions) {
   const [reused, setReused] = useState(false);
   const epochKey = `rt_epoch:${connectionId}`;
   const epochRef = useRef<number>(0);
+  const lastEpochKeyRef = useRef<string>('');
 
-  // Reload epoch whenever (userId, connectionId) changes.
-  useEffect(() => {
+  // Synchronously load epoch for the current connectionId so that even if the
+  // websocket connects immediately, we still send the correct clientEpoch.
+  if (lastEpochKeyRef.current !== epochKey) {
+    lastEpochKeyRef.current = epochKey;
     try {
       const raw = localStorage.getItem(epochKey);
       const n = raw ? Number(raw) : 0;
@@ -28,7 +31,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
     } catch {
       epochRef.current = 0;
     }
-  }, [epochKey]);
+  }
 
   const connect = useCallback((rows: number = 24, cols: number = 80) => {
     if (socketRef.current?.connected) {
@@ -83,7 +86,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
 
     // 不再返回清理函数，因为 connect 可能会被多次调用，需要确保只清理正确的 socket
     // 所有清理都应该在 disconnect 函数中统一处理
-  }, [userId, connectionId, epochKey, onConnected, onData, onError, onDisconnect]);
+  }, [userId, connectionId, onConnected, onData, onError, onDisconnect]);
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {
