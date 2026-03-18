@@ -19,6 +19,8 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const isDisposedRef = useRef<boolean>(false);
   const userId = useUserId();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const outputMirrorRef = useRef<string>('');
+  const [outputMirror, setOutputMirror] = useState<string>('');
 
   const { connected, connecting, reused, connect, disconnect, sendData, resize, killSession } = useWebSocket({
     userId,
@@ -28,6 +30,10 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     },
     onData: (data) => {
       xtermRef.current?.write(data);
+      // Stable observability point for tests (xterm output can be hard to assert).
+      // Keep a bounded mirror of recent output.
+      outputMirrorRef.current = (outputMirrorRef.current + data).slice(-20_000);
+      setOutputMirror(outputMirrorRef.current);
     },
     onError: (error) => {
       setErrorMessage(error);
@@ -156,6 +162,9 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
 
   return (
     <div data-testid="terminal-page" className="flex flex-col h-full bg-gray-900">
+      <pre data-testid="terminal-output-mirror" className="sr-only whitespace-pre-wrap">
+        {outputMirror}
+      </pre>
       <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
         <div className="flex items-center gap-2">
           <div data-testid="connection-status" className={`w-2 h-2 rounded-full ${

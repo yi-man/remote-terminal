@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TEST_CONNECTION } from '../fixtures/test-data';
 import { APIHelper } from '../utils/api-helper.js';
+import { SSHHelper } from '../utils/ssh-helper.js';
 
 test.describe('SSH Terminal', () => {
   // Use a consistent test user ID
@@ -246,5 +247,71 @@ test.describe('SSH Terminal', () => {
     await page.setViewportSize({ width: 430, height: 820 });
     await expect(page.locator('[data-testid="terminal-page"]')).toBeVisible();
     await expect(page.locator('[data-testid="connection-status-text"]')).toBeVisible();
+  });
+
+  test('should execute a real SSH command and show marker output', async ({ page }) => {
+    const uniqueName = `测试marker-${Date.now()}`;
+    const helper = new SSHHelper(page);
+    const marker = `__pw_marker__${Date.now()}__`;
+
+    await page.goto('/');
+
+    // Create connection
+    await page.click('button:has-text("+ 新连接")');
+    await page.fill('input[placeholder*="例如"]', uniqueName);
+    await page.fill('input[placeholder*="192.168"]', TEST_CONNECTION.host);
+    await page.fill('input[placeholder="22"]', TEST_CONNECTION.port.toString());
+    await page.fill('input[placeholder="username"]', TEST_CONNECTION.username);
+    await page.fill('input[placeholder="Enter password"]', TEST_CONNECTION.password);
+    await page.click('button:has-text("保存")');
+
+    // Connect
+    const connectionCard = page
+      .locator(`text=${uniqueName}`)
+      .locator('xpath=ancestor::div[contains(@class, "bg-gray-800")]');
+    await connectionCard.locator('button:has-text("连接")').click();
+    await expect(page.locator('[data-testid="terminal-page"]')).toBeVisible({ timeout: 15000 });
+
+    await helper.waitForTerminalReady(30000);
+    await helper.sendCommand(`echo "${marker}"`);
+    await helper.expectTerminalContains(marker, 30000);
+  });
+
+  test('should reuse session on reload and replay history containing marker', async ({ page }) => {
+    const uniqueName = `测试回放-${Date.now()}`;
+    const helper = new SSHHelper(page);
+    const marker = `__pw_replay__${Date.now()}__`;
+
+    await page.goto('/');
+
+    // Create connection
+    await page.click('button:has-text("+ 新连接")');
+    await page.fill('input[placeholder*="例如"]', uniqueName);
+    await page.fill('input[placeholder*="192.168"]', TEST_CONNECTION.host);
+    await page.fill('input[placeholder="22"]', TEST_CONNECTION.port.toString());
+    await page.fill('input[placeholder="username"]', TEST_CONNECTION.username);
+    await page.fill('input[placeholder="Enter password"]', TEST_CONNECTION.password);
+    await page.click('button:has-text("保存")');
+
+    // Connect
+    const connectionCard = page
+      .locator(`text=${uniqueName}`)
+      .locator('xpath=ancestor::div[contains(@class, "bg-gray-800")]');
+    await connectionCard.locator('button:has-text("连接")').click();
+    await expect(page.locator('[data-testid="terminal-page"]')).toBeVisible({ timeout: 15000 });
+
+    await helper.waitForTerminalReady(30000);
+    await helper.sendCommand(`echo "${marker}"`);
+    await helper.expectTerminalContains(marker, 30000);
+
+    // Reload the terminal route. This should disconnect the socket without kill-session,
+    // allowing the backend to reuse the existing session and replay history.
+    await page.reload();
+
+    await expect(page.locator('[data-testid="terminal-page"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="connection-status-text"]')).toContainText('复用', {
+      timeout: 15000,
+    });
+    await helper.expectTerminalContains(marker, 30000);
   });
 });
