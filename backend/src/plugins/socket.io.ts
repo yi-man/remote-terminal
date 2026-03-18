@@ -67,13 +67,12 @@ export async function socketIoPlugin(app: FastifyInstance) {
           setupSocketListeners(socket, sshClient);
           sshClient.resize(rows || 24, cols || 80);
 
-          socket.emit('connected');
+          // 发送 connected 事件通知前端会话已复用
+          socket.emit('connected', { reused: true });
 
-          // Send buffered output history AFTER connected event
-          const buffer = sshClient.getOutputBuffer();
-          if (buffer) {
-            socket.emit('data', buffer);
-          }
+          // 发送一个换行到新终端，避免内容堆叠在命令提示符前
+          // 同时避免发送完整的缓冲历史，防止乱码和 tmux attach 问题
+          socket.emit('data', '\r\n');
 
           return;
         }
@@ -142,6 +141,12 @@ function setupSocketListeners(socket: any, sshClient: SSHClient) {
 
   socket.on('disconnect', () => {
     const sessionId = socket.data.sessionId;
+    console.log(`Socket disconnected, session: ${sessionId}`);
+    // 这里不立即清除会话，允许刷新页面复用会话
+    // 如果需要在 socket 断开后立即清除会话，可以取消下面的注释
+    // if (sessionId) {
+    //   sessionManager.removeSession(sessionId);
+    // }
   });
 
   socket.on('kill-session', () => {

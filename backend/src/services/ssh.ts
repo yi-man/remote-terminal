@@ -49,6 +49,8 @@ export class SSHClient {
 
       this.client.on('ready', () => {
         console.log('SSH connection established');
+        // 先建立 shell，然后在需要时通过其他方式处理环境变量
+        // 因为 ssh2 的 shell 方法不支持直接在 PseudoTtyOptions 中传递 env
         this.client!.shell({
           term: 'xterm-256color',
         }, (err, channel) => {

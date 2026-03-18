@@ -15,6 +15,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [sessionReused, setSessionReused] = useState(false);
 
   const connect = useCallback((rows: number = 24, cols: number = 80) => {
     if (socketRef.current?.connected) {
@@ -35,8 +36,11 @@ export function useWebSocket(options: UseWebSocketOptions) {
       socket.emit('connect-ssh', { userId, connectionId, rows, cols });
     });
 
-    socket.on('connected', () => {
-      console.log('SSH connected');
+    socket.on('connected', (data?: any) => {
+      console.log('SSH connected', data);
+      if (data?.reused) {
+        setSessionReused(true);
+      }
       setConnected(true);
       setConnecting(false);
       onConnected?.();
@@ -59,9 +63,8 @@ export function useWebSocket(options: UseWebSocketOptions) {
       onDisconnect?.();
     });
 
-    return () => {
-      socket.disconnect();
-    };
+    // 不再返回清理函数，因为 connect 可能会被多次调用，需要确保只清理正确的 socket
+    // 所有清理都应该在 disconnect 函数中统一处理
   }, [userId, connectionId, onConnected, onData, onError, onDisconnect]);
 
   const disconnect = useCallback(() => {
@@ -85,6 +88,12 @@ export function useWebSocket(options: UseWebSocketOptions) {
     }
   }, []);
 
+  const killSession = useCallback(() => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('kill-session');
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       disconnect();
@@ -98,5 +107,6 @@ export function useWebSocket(options: UseWebSocketOptions) {
     disconnect,
     sendData,
     resize,
+    killSession,
   };
 }

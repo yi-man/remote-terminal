@@ -20,7 +20,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const userId = useUserId();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { connected, connecting, connect, disconnect, sendData, resize } = useWebSocket({
+  const { connected, connecting, connect, disconnect, sendData, resize, killSession } = useWebSocket({
     userId,
     connectionId,
     onConnected: () => {
@@ -52,8 +52,21 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
 
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
+
+    // 确保在终端打开后稍等一下再调用 fit
+    // 这样可以避免 fitAddon 在元素未完全准备好时就尝试调整大小
     terminal.open(terminalRef.current);
-    fitAddon.fit();
+
+    // 使用 requestAnimationFrame 确保 DOM 已完全渲染
+    requestAnimationFrame(() => {
+      try {
+        if (fitAddon && terminalRef.current && !isDisposedRef.current) {
+          fitAddon.fit();
+        }
+      } catch (error) {
+        console.error('FitAddon error during initialization:', error);
+      }
+    });
 
     xtermRef.current = terminal;
     fitAddonRef.current = fitAddon;
@@ -125,6 +138,9 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const handleDisconnect = () => {
     // 立即标记为已废弃，防止后续操作
     isDisposedRef.current = true;
+    // 发送 kill-session 事件来真正终止 SSH 会话
+    killSession();
+    // 断开 socket 连接
     disconnect();
     // 直接调用 onDisconnect 导航回列表页面
     // 这样可以避免在组件仍然存在时尝试访问已废弃的 terminal 对象
