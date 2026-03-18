@@ -40,6 +40,8 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     },
   });
 
+  const epochKey = `rt_epoch:${userId}:${connectionId}`;
+
   useEffect(() => {
     if (!terminalRef.current) return;
 
@@ -144,6 +146,16 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const handleDisconnect = async () => {
     // 立即标记为已废弃，防止后续操作
     isDisposedRef.current = true;
+    // Advance epoch locally so the next connect can't reuse an old session
+    // even if kill-session cannot be delivered due to websocket instability.
+    try {
+      const raw = sessionStorage.getItem(epochKey);
+      const n = raw ? Number(raw) : 0;
+      const next = (Number.isFinite(n) ? n : 0) + 1;
+      sessionStorage.setItem(epochKey, String(next));
+    } catch {
+      // ignore
+    }
     // 发送 kill-session 事件来真正终止 SSH 会话
     await killSession();
     // 断开 socket 连接

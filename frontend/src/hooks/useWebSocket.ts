@@ -16,6 +16,19 @@ export function useWebSocket(options: UseWebSocketOptions) {
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [reused, setReused] = useState(false);
+  const epochKey = `rt_epoch:${userId}:${connectionId}`;
+  const epochRef = useRef<number>(0);
+
+  // Reload epoch whenever (userId, connectionId) changes.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(epochKey);
+      const n = raw ? Number(raw) : 0;
+      epochRef.current = Number.isFinite(n) ? n : 0;
+    } catch {
+      epochRef.current = 0;
+    }
+  }, [epochKey]);
 
   const connect = useCallback((rows: number = 24, cols: number = 80) => {
     if (socketRef.current?.connected) {
@@ -34,7 +47,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
 
     socket.on('connect', () => {
       console.log('WebSocket connected');
-      socket.emit('connect-ssh', { userId, connectionId, rows, cols });
+      socket.emit('connect-ssh', { userId, connectionId, rows, cols, clientEpoch: epochRef.current });
     });
 
     socket.on('connected', (data?: any) => {
@@ -42,6 +55,10 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnected(true);
       setConnecting(false);
       setReused(!!data?.reused);
+      if (typeof data?.epoch === 'number') {
+        epochRef.current = data.epoch;
+        sessionStorage.setItem(epochKey, String(epochRef.current));
+      }
       onConnected?.();
     });
 
@@ -66,7 +83,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
 
     // 不再返回清理函数，因为 connect 可能会被多次调用，需要确保只清理正确的 socket
     // 所有清理都应该在 disconnect 函数中统一处理
-  }, [userId, connectionId, onConnected, onData, onError, onDisconnect]);
+  }, [userId, connectionId, epochKey, onConnected, onData, onError, onDisconnect]);
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {
@@ -92,6 +109,11 @@ export function useWebSocket(options: UseWebSocketOptions) {
 
   const killSession = useCallback((): Promise<void> => {
     return new Promise((resolve) => {
+      // Advance epoch locally so the next connect won't reuse even if kill-session
+      // cannot be delivered due to websocket instability.
+      epochRef.current += 1;
+      sessionStorage.setItem(epochKey, String(epochRef.current));
+
       if (!socketRef.current?.connected) {
         resolve();
         return;
@@ -113,7 +135,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
         resolve();
       });
     });
-  }, []);
+  }, [epochKey]);
 
   useEffect(() => {
     return () => {

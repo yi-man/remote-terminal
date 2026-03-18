@@ -9,6 +9,7 @@ interface ConnectSSHData {
   connectionId: string;
   rows?: number;
   cols?: number;
+  clientEpoch?: number;
 }
 
 interface ResizeData {
@@ -31,7 +32,7 @@ export async function socketIoPlugin(app: FastifyInstance) {
       console.log('Socket disconnected:', socket.id);
     });
 
-    socket.on('connect-ssh', async ({ userId, connectionId, rows, cols }: ConnectSSHData) => {
+    socket.on('connect-ssh', async ({ userId, connectionId, rows, cols, clientEpoch }: ConnectSSHData) => {
       try {
         console.log(`Connecting SSH for user ${userId}, connection ${connectionId}`);
         // Persist identifiers early to avoid races with kill-session/disconnect.
@@ -63,7 +64,18 @@ export async function socketIoPlugin(app: FastifyInstance) {
           console.log(`Fixed host format: ${connection.host} -> ${host}:${port}`);
         }
 
-        let existingSession = sessionManager.getSessionByConnection(userId, connectionId);
+        // Epoch-based session reuse.
+        let serverEpoch = sessionManager.getEpoch(userId, connectionId);
+        const clientEpochNum = typeof clientEpoch === 'number' ? clientEpoch : serverEpoch;
+        if (clientEpochNum !== serverEpoch) {
+          // Client has moved on (e.g. user explicitly disconnected). Do not reuse.
+          const nextEpoch = Math.max(serverEpoch, clientEpochNum);
+          sessionManager.setEpoch(userId, connectionId, nextEpoch);
+          sessionManager.removeSessionByConnection(userId, connectionId);
+          serverEpoch = nextEpoch;
+        }
+
+        let existingSession = sessionManager.getSessionByConnection(userId, connectionId, serverEpoch);
         if (existingSession) {
           console.log('Reusing existing session');
           let sshClient = existingSession.sshClient;
@@ -159,7 +171,7 @@ export async function socketIoPlugin(app: FastifyInstance) {
           }
 
           // 发送 connected 事件通知前端会话已复用
-          socket.emit('connected', { reused: true });
+          socket.emit('connected', { reused: true, epoch: serverEpoch });
 
           // 发送历史记录
           socket.emit('data', historyToSend);
@@ -194,7 +206,7 @@ export async function socketIoPlugin(app: FastifyInstance) {
 
         await sshClient.connect(connectOptions);
 
-        const sessionId = sessionManager.createSession(userId, connectionId, sshClient);
+        const sessionId = sessionManager.createSession(userId, connectionId, serverEpoch, sshClient);
         socket.data.sessionId = sessionId;
 
         if (rows && cols) {
@@ -210,7 +222,7 @@ export async function socketIoPlugin(app: FastifyInstance) {
           return;
         }
 
-        socket.emit('connected');
+        socket.emit('connected', { epoch: serverEpoch });
         console.log('SSH connected successfully');
 
       } catch (error: any) {
@@ -246,6 +258,10 @@ function setupSocketListeners(socket: any, sshClient: SSHClient) {
 
   socket.on('kill-session', (ack?: (payload: { ok: boolean }) => void) => {
     socket.data.killed = true;
+    if (socket.data.userId && socket.data.connectionId) {
+      sessionManager.bumpEpoch(socket.data.userId, socket.data.connectionId);
+      sessionManager.removeSessionByConnection(socket.data.userId, socket.data.connectionId);
+    }
     const sessionId = socket.data.sessionId;
     if (sessionId) {
       console.log(`Killing session ${sessionId}`);

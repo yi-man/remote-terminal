@@ -26,7 +26,7 @@ describe('SessionManager', () => {
   describe('createSession', () => {
     it('should create a new session and return session ID', () => {
       const sshClient = new MockSSHClient();
-      const sessionId = sessionManager.createSession('user1', 'conn1', sshClient as any);
+      const sessionId = sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
 
       expect(sessionId).toBeDefined();
       expect(typeof sessionId).toBe('string');
@@ -37,13 +37,14 @@ describe('SessionManager', () => {
       const now = Date.now();
       vi.setSystemTime(now);
 
-      const sessionId = sessionManager.createSession('user1', 'conn1', sshClient as any);
+      const sessionId = sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
       const session = sessionManager.getSession(sessionId);
 
       expect(session).toBeDefined();
       expect(session?.id).toBe(sessionId);
       expect(session?.userId).toBe('user1');
       expect(session?.connectionId).toBe('conn1');
+      expect(session?.epoch).toBe(0);
       expect(session?.sshClient).toBe(sshClient);
       expect(session?.createdAt).toBe(now);
       expect(session?.lastActiveAt).toBe(now);
@@ -58,7 +59,7 @@ describe('SessionManager', () => {
 
     it('should return the session for existing session ID', () => {
       const sshClient = new MockSSHClient();
-      const sessionId = sessionManager.createSession('user1', 'conn1', sshClient as any);
+      const sessionId = sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
 
       const session = sessionManager.getSession(sessionId);
       expect(session).toBeDefined();
@@ -74,7 +75,7 @@ describe('SessionManager', () => {
 
     it('should return the session for matching user and connection', () => {
       const sshClient = new MockSSHClient();
-      const sessionId = sessionManager.createSession('user1', 'conn1', sshClient as any);
+      const sessionId = sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
 
       const session = sessionManager.getSessionByConnection('user1', 'conn1');
       expect(session).toBeDefined();
@@ -83,7 +84,7 @@ describe('SessionManager', () => {
 
     it('should return undefined for mismatched user', () => {
       const sshClient = new MockSSHClient();
-      sessionManager.createSession('user1', 'conn1', sshClient as any);
+      sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
 
       const session = sessionManager.getSessionByConnection('user2', 'conn1');
       expect(session).toBeUndefined();
@@ -91,7 +92,7 @@ describe('SessionManager', () => {
 
     it('should return undefined for mismatched connection', () => {
       const sshClient = new MockSSHClient();
-      sessionManager.createSession('user1', 'conn1', sshClient as any);
+      sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
 
       const session = sessionManager.getSessionByConnection('user1', 'conn2');
       expect(session).toBeUndefined();
@@ -101,7 +102,7 @@ describe('SessionManager', () => {
   describe('updateActivity', () => {
     it('should update lastActiveAt for existing session', () => {
       const sshClient = new MockSSHClient();
-      const sessionId = sessionManager.createSession('user1', 'conn1', sshClient as any);
+      const sessionId = sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
       const initialActivity = sessionManager.getSession(sessionId)?.lastActiveAt;
 
       vi.setSystemTime(initialActivity! + 1000);
@@ -121,7 +122,7 @@ describe('SessionManager', () => {
   describe('removeSession', () => {
     it('should remove the session', () => {
       const sshClient = new MockSSHClient();
-      const sessionId = sessionManager.createSession('user1', 'conn1', sshClient as any);
+      const sessionId = sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
 
       expect(sessionManager.getSession(sessionId)).toBeDefined();
       sessionManager.removeSession(sessionId);
@@ -131,7 +132,7 @@ describe('SessionManager', () => {
     it('should call destroy on SSH client', async () => {
       const sshClient = new MockSSHClient();
       const destroySpy = vi.spyOn(sshClient, 'destroy');
-      const sessionId = sessionManager.createSession('user1', 'conn1', sshClient as any);
+      const sessionId = sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
 
       sessionManager.removeSession(sessionId);
       expect(destroySpy).toHaveBeenCalled();
@@ -147,7 +148,7 @@ describe('SessionManager', () => {
   describe('session timeout', () => {
     it('should automatically remove session after timeout', () => {
       const sshClient = new MockSSHClient();
-      const sessionId = sessionManager.createSession('user1', 'conn1', sshClient as any);
+      const sessionId = sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
 
       expect(sessionManager.getSession(sessionId)).toBeDefined();
 
@@ -158,7 +159,7 @@ describe('SessionManager', () => {
 
     it('should reset timeout when activity is updated', () => {
       const sshClient = new MockSSHClient();
-      const sessionId = sessionManager.createSession('user1', 'conn1', sshClient as any);
+      const sessionId = sessionManager.createSession('user1', 'conn1', 0, sshClient as any);
 
       vi.advanceTimersByTime(5 * 60 * 1000);
       sessionManager.updateActivity(sessionId);
