@@ -68,7 +68,21 @@ export function ConnectionForm({ connection, onSubmit, onCancel }: ConnectionFor
             type="text"
             required
             value={formData.host}
-            onChange={(e) => setFormData((prev) => ({ ...prev, host: e.target.value }))}
+            onChange={(e) => {
+              let host = e.target.value.trim();
+              let port = formData.port;
+
+              // 防御性修复：如果输入包含端口号，自动分离
+              if (host.includes(':')) {
+                const parts = host.split(':');
+                if (parts.length === 2 && !isNaN(parseInt(parts[1]))) {
+                  host = parts[0].trim();
+                  port = parseInt(parts[1]);
+                }
+              }
+
+              setFormData((prev) => ({ ...prev, host, port }));
+            }}
             className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="192.168.1.100"
           />

@@ -46,6 +46,19 @@ export async function socketIoPlugin(app: FastifyInstance) {
           return;
         }
 
+        // 防御性修复：确保 host 不包含端口号
+        // 如果 host 包含冒号，分割出真正的 host
+        let { host, port } = connection;
+        if (host && host.includes(':')) {
+          const parts = host.split(':');
+          host = parts[0];
+          // 如果分割后有端口并且是有效数字，使用它
+          if (parts[1] && !isNaN(parseInt(parts[1]))) {
+            port = parseInt(parts[1]);
+          }
+          console.log(`Fixed host format: ${connection.host} -> ${host}:${port}`);
+        }
+
         let existingSession = sessionManager.getSessionByConnection(userId, connectionId);
         if (existingSession) {
           console.log('Reusing existing session');
@@ -66,8 +79,8 @@ export async function socketIoPlugin(app: FastifyInstance) {
               sshClient = new SSHClient();
 
               const connectOptions: any = {
-                host: connection.host,
-                port: connection.port || 22,
+                host: host,
+                port: port || 22,
                 username: connection.username,
               };
 
@@ -148,8 +161,8 @@ export async function socketIoPlugin(app: FastifyInstance) {
         const sshClient = new SSHClient();
 
         const connectOptions: any = {
-          host: connection.host,
-          port: connection.port || 22,
+          host: host,
+          port: port || 22,
           username: connection.username,
         };
 

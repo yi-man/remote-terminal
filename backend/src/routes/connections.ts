@@ -63,7 +63,18 @@ export async function connectionRoutes(app: FastifyInstance) {
     const body = req.body as unknown;
 
     try {
-      const validated = createConnectionSchema.parse(body);
+      let validated = createConnectionSchema.parse(body);
+
+      // 防御性修复：如果 host 包含端口号，分离出来
+      if (validated.host && validated.host.includes(':')) {
+        const parts = validated.host.split(':');
+        validated.host = parts[0];
+        if (parts[1] && !isNaN(parseInt(parts[1]))) {
+          validated.port = parseInt(parts[1]);
+        }
+        console.log(`Fixed host format during creation: ${body.host} -> ${validated.host}:${validated.port}`);
+      }
+
       const connection = db.createSSHConnection(validated);
 
       return {
@@ -95,7 +106,18 @@ export async function connectionRoutes(app: FastifyInstance) {
     }
 
     try {
-      const validated = updateConnectionSchema.parse(body);
+      let validated = updateConnectionSchema.parse(body);
+
+      // 防御性修复：如果 host 包含端口号，分离出来
+      if (validated.host && validated.host.includes(':')) {
+        const parts = validated.host.split(':');
+        validated.host = parts[0];
+        if (parts[1] && !isNaN(parseInt(parts[1]))) {
+          validated.port = parseInt(parts[1]);
+        }
+        console.log(`Fixed host format during update: ${body.host} -> ${validated.host}:${validated.port}`);
+      }
+
       const updated = db.updateSSHConnection(id, validated);
 
       return {
