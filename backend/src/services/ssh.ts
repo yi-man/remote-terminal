@@ -61,7 +61,7 @@ export class SSHClient {
           this.connected = true;
 
           channel.on('data', (data: Buffer) => {
-            const str = data.toString();
+            const str = data.toString('utf8');
             // Add to buffer
             this.outputBuffer += str;
             // Limit buffer size to prevent memory issues

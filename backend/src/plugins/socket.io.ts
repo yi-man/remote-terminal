@@ -54,12 +54,6 @@ export async function socketIoPlugin(app: FastifyInstance) {
           socket.data.sessionId = existingSession.id;
           sessionManager.updateActivity(existingSession.id);
 
-          // First send any buffered output history
-          const buffer = sshClient.getOutputBuffer();
-          if (buffer) {
-            socket.emit('data', buffer);
-          }
-
           // Register data handler for new socket
           sshClient.onData((data) => {
             socket.emit('data', data);
@@ -74,6 +68,13 @@ export async function socketIoPlugin(app: FastifyInstance) {
           sshClient.resize(rows || 24, cols || 80);
 
           socket.emit('connected');
+
+          // Send buffered output history AFTER connected event
+          const buffer = sshClient.getOutputBuffer();
+          if (buffer) {
+            socket.emit('data', buffer);
+          }
+
           return;
         }
 
