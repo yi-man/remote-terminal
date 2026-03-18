@@ -49,10 +49,74 @@ export async function socketIoPlugin(app: FastifyInstance) {
         let existingSession = sessionManager.getSessionByConnection(userId, connectionId);
         if (existingSession) {
           console.log('Reusing existing session');
-          const sshClient = existingSession.sshClient;
+          let sshClient = existingSession.sshClient;
 
           socket.data.sessionId = existingSession.id;
           sessionManager.updateActivity(existingSession.id);
+
+          // 检查 SSH 连接是否仍然有效
+          if (!sshClient.isConnected()) {
+            console.log('SSH shell channel closed, recreating shell...');
+            try {
+              await sshClient.recreateShell();
+              console.log('Shell recreated successfully');
+            } catch (err) {
+              console.error('Failed to recreate shell, creating new SSH connection:', err);
+              // 如果 recreateShell 失败，创建一个全新的 SSH 连接
+              sshClient = new SSHClient();
+
+              const connectOptions: any = {
+                host: connection.host,
+                port: connection.port || 22,
+                username: connection.username,
+              };
+
+              if (connection.auth_type === 'password' && connection.password) {
+                connectOptions.password = connection.password;
+              } else if (connection.auth_type === 'privateKey' && connection.private_key) {
+                connectOptions.privateKey = connection.private_key;
+                if (connection.passphrase) {
+                  connectOptions.passphrase = connection.passphrase;
+                }
+              }
+
+              sshClient.onData((data) => {
+                socket.emit('data', data);
+              });
+
+              sshClient.onError((error) => {
+                socket.emit('error', { message: error.message });
+              });
+
+              await sshClient.connect(connectOptions);
+
+              // 更新会话中的 SSHClient
+              existingSession.sshClient = sshClient;
+            }
+          }
+
+          // 智能发送历史记录
+          const fullHistory = sshClient.getOutputBuffer();
+          let historyToSend = '\r\n'; // 默认只发送换行
+
+          if (fullHistory) {
+            // 检测是否在 tmux 会话中（通过特征字符串）
+            const isInTmux = fullHistory.includes('tmux') || fullHistory.includes('%0');
+
+            if (isInTmux) {
+              console.log('Detected tmux session, sending minimal history');
+              // tmux 会话只发送最后 50 行，避免乱码
+              const lines = fullHistory.split('\n');
+              const recentLines = lines.slice(Math.max(0, lines.length - 50)).join('\n');
+              historyToSend = recentLines + '\r\n';
+            } else {
+              console.log('Normal SSH session, sending moderate history');
+              // 普通 SSH 会话发送最后 500 行
+              const lines = fullHistory.split('\n');
+              const recentLines = lines.slice(Math.max(0, lines.length - 500)).join('\n');
+              historyToSend = recentLines + '\r\n';
+            }
+          }
 
           // Register data handler for new socket
           sshClient.onData((data) => {
@@ -64,15 +128,19 @@ export async function socketIoPlugin(app: FastifyInstance) {
             socket.emit('error', { message: error.message });
           });
 
+          // Register channel close handler to clean up state
+          sshClient.onChannelClose(() => {
+            console.log('Shell channel closed for session', existingSession!.id);
+          });
+
           setupSocketListeners(socket, sshClient);
           sshClient.resize(rows || 24, cols || 80);
 
           // 发送 connected 事件通知前端会话已复用
           socket.emit('connected', { reused: true });
 
-          // 发送一个换行到新终端，避免内容堆叠在命令提示符前
-          // 同时避免发送完整的缓冲历史，防止乱码和 tmux attach 问题
-          socket.emit('data', '\r\n');
+          // 发送历史记录
+          socket.emit('data', historyToSend);
 
           return;
         }

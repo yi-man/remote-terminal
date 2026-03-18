@@ -24,11 +24,14 @@ export class SSHClient {
   private shellChannel: Channel | null = null;
   private onDataHandler: SSHDataHandler | null = null;
   private onErrorHandler: SSHErrorHandler | null = null;
+  private onChannelCloseHandler: (() => void) | null = null;
   private connected: boolean = false;
   private outputBuffer: string = '';
   private readonly MAX_BUFFER_SIZE = 100000; // 100KB max buffer
+  private connectOptions: SSHConnectOptions | null = null;
 
   async connect(options: SSHConnectOptions): Promise<void> {
+    this.connectOptions = options;
     return new Promise((resolve, reject) => {
       this.client = new Client();
 
@@ -49,45 +52,7 @@ export class SSHClient {
 
       this.client.on('ready', () => {
         console.log('SSH connection established');
-        // 先建立 shell，然后在需要时通过其他方式处理环境变量
-        // 因为 ssh2 的 shell 方法不支持直接在 PseudoTtyOptions 中传递 env
-        this.client!.shell({
-          term: 'xterm-256color',
-        }, (err, channel) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          this.shellChannel = channel;
-          this.connected = true;
-
-          channel.on('data', (data: Buffer) => {
-            const str = data.toString('utf8');
-            // Add to buffer
-            this.outputBuffer += str;
-            // Limit buffer size to prevent memory issues
-            if (this.outputBuffer.length > this.MAX_BUFFER_SIZE) {
-              this.outputBuffer = this.outputBuffer.slice(-this.MAX_BUFFER_SIZE);
-            }
-            // Call the user handler if set
-            if (this.onDataHandler) {
-              this.onDataHandler(str);
-            }
-          });
-
-          channel.on('close', () => {
-            console.log('Shell channel closed');
-            this.connected = false;
-          });
-
-          channel.stderr.on('data', (data: Buffer) => {
-            console.error('SSH stderr:', data.toString());
-          });
-
-          resolve();
-        });
-
+        this.createShell(resolve, reject);
       });
 
       this.client!.on('error', (err) => {
@@ -100,6 +65,82 @@ export class SSHClient {
 
       this.client!.connect(config);
     });
+  }
+
+  /**
+   * 创建一个新的 shell 通道，用于复用已存在的 SSH 连接
+   */
+  async recreateShell(): Promise<void> {
+    if (!this.client || !this.connectOptions) {
+      throw new Error('SSH client not connected');
+    }
+
+    // 清理旧的 shell 通道
+    if (this.shellChannel) {
+      this.shellChannel.end();
+      this.shellChannel = null;
+    }
+
+    return new Promise((resolve, reject) => {
+      // 尝试重新创建 shell，如果失败则重新连接
+      this.createShell(resolve, (err) => {
+        console.log('Create shell failed, trying to reconnect:', err.message);
+        // shell 创建失败，尝试完全重新连接
+        this.connect(this.connectOptions!).then(resolve).catch(reject);
+      });
+    });
+  }
+
+  /**
+   * 内部方法：创建 shell 通道
+   */
+  private createShell(resolve: (value: void) => void, reject: (reason: any) => void) {
+    this.client!.shell({
+      term: 'xterm-256color',
+    }, (err, channel) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      this.shellChannel = channel;
+      this.connected = true;
+
+      channel.on('data', (data: Buffer) => {
+        const str = data.toString('utf8');
+        // Add to buffer
+        this.outputBuffer += str;
+        // Limit buffer size to prevent memory issues
+        if (this.outputBuffer.length > this.MAX_BUFFER_SIZE) {
+          this.outputBuffer = this.outputBuffer.slice(-this.MAX_BUFFER_SIZE);
+        }
+        // Call the user handler if set
+        if (this.onDataHandler) {
+          this.onDataHandler(str);
+        }
+      });
+
+      channel.on('close', () => {
+        console.log('Shell channel closed');
+        this.connected = false;
+        if (this.onChannelCloseHandler) {
+          this.onChannelCloseHandler();
+        }
+      });
+
+      channel.stderr.on('data', (data: Buffer) => {
+        console.error('SSH stderr:', data.toString());
+      });
+
+      resolve();
+    });
+  }
+
+  /**
+   * 注册 shell 通道关闭时的回调
+   */
+  onChannelClose(handler: () => void): void {
+    this.onChannelCloseHandler = handler;
   }
 
   write(data: string): void {
