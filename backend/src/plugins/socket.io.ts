@@ -34,6 +34,10 @@ export async function socketIoPlugin(app: FastifyInstance) {
     socket.on('connect-ssh', async ({ userId, connectionId, rows, cols }: ConnectSSHData) => {
       try {
         console.log(`Connecting SSH for user ${userId}, connection ${connectionId}`);
+        // Persist identifiers early to avoid races with kill-session/disconnect.
+        socket.data.userId = userId;
+        socket.data.connectionId = connectionId;
+        socket.data.killed = false;
 
         const connection = db.getSSHConnection(connectionId);
         if (!connection) {
@@ -149,6 +153,11 @@ export async function socketIoPlugin(app: FastifyInstance) {
           setupSocketListeners(socket, sshClient);
           sshClient.resize(rows || 24, cols || 80);
 
+          if (socket.data.killed) {
+            sessionManager.removeSession(existingSession.id);
+            return;
+          }
+
           // 发送 connected 事件通知前端会话已复用
           socket.emit('connected', { reused: true });
 
@@ -196,6 +205,11 @@ export async function socketIoPlugin(app: FastifyInstance) {
 
         db.updateLastUsedAt(connectionId);
 
+        if (socket.data.killed) {
+          sessionManager.removeSession(sessionId);
+          return;
+        }
+
         socket.emit('connected');
         console.log('SSH connected successfully');
 
@@ -231,10 +245,17 @@ function setupSocketListeners(socket: any, sshClient: SSHClient) {
   });
 
   socket.on('kill-session', (ack?: (payload: { ok: boolean }) => void) => {
+    socket.data.killed = true;
     const sessionId = socket.data.sessionId;
     if (sessionId) {
       console.log(`Killing session ${sessionId}`);
       sessionManager.removeSession(sessionId);
+    } else if (socket.data.userId && socket.data.connectionId) {
+      const existing = sessionManager.getSessionByConnection(socket.data.userId, socket.data.connectionId);
+      if (existing) {
+        console.log(`Killing session by connection ${existing.id}`);
+        sessionManager.removeSession(existing.id);
+      }
     }
     ack?.({ ok: true });
   });
