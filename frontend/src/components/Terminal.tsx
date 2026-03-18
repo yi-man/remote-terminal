@@ -40,7 +40,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     },
   });
 
-  const epochKey = `rt_epoch:${userId}:${connectionId}`;
+  const epochKey = `rt_epoch:${connectionId}`;
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -149,10 +149,10 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     // Advance epoch locally so the next connect can't reuse an old session
     // even if kill-session cannot be delivered due to websocket instability.
     try {
-      const raw = sessionStorage.getItem(epochKey);
+      const raw = localStorage.getItem(epochKey);
       const n = raw ? Number(raw) : 0;
       const next = (Number.isFinite(n) ? n : 0) + 1;
-      sessionStorage.setItem(epochKey, String(next));
+      localStorage.setItem(epochKey, String(next));
     } catch {
       // ignore
     }

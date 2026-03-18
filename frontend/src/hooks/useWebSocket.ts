@@ -16,13 +16,13 @@ export function useWebSocket(options: UseWebSocketOptions) {
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [reused, setReused] = useState(false);
-  const epochKey = `rt_epoch:${userId}:${connectionId}`;
+  const epochKey = `rt_epoch:${connectionId}`;
   const epochRef = useRef<number>(0);
 
   // Reload epoch whenever (userId, connectionId) changes.
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(epochKey);
+      const raw = localStorage.getItem(epochKey);
       const n = raw ? Number(raw) : 0;
       epochRef.current = Number.isFinite(n) ? n : 0;
     } catch {
@@ -57,7 +57,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setReused(!!data?.reused);
       if (typeof data?.epoch === 'number') {
         epochRef.current = data.epoch;
-        sessionStorage.setItem(epochKey, String(epochRef.current));
+        localStorage.setItem(epochKey, String(epochRef.current));
       }
       onConnected?.();
     });
@@ -112,7 +112,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       // Advance epoch locally so the next connect won't reuse even if kill-session
       // cannot be delivered due to websocket instability.
       epochRef.current += 1;
-      sessionStorage.setItem(epochKey, String(epochRef.current));
+      localStorage.setItem(epochKey, String(epochRef.current));
 
       if (!socketRef.current?.connected) {
         resolve();
