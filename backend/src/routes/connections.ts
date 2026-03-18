@@ -9,8 +9,21 @@ const baseConnectionSchema = z.object({
   name: z.string().min(1, '连接名称不能为空').max(100, '连接名称过长'),
   host: z.string()
     .min(1, '主机地址不能为空')
-    .refine(val => /^[a-zA-Z0-9.-]+$/.test(val) || /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(val),
-    '主机地址格式无效（应为域名或IPv4地址）'),
+    .refine((val) => {
+      const trimmed = val.trim();
+      const [hostPart, portPart] = trimmed.split(':');
+
+      const hostOk =
+        /^[a-zA-Z0-9.-]+$/.test(hostPart) ||
+        /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostPart);
+
+      if (!hostOk) return false;
+      if (portPart === undefined) return true;
+      if (!/^\d+$/.test(portPart)) return false;
+
+      const port = Number(portPart);
+      return Number.isInteger(port) && port >= 1 && port <= 65535;
+    }, '主机地址格式无效（应为域名或IPv4地址，可选带 :port）'),
   port: z.number().int()
     .min(1, '端口必须大于0')
     .max(65535, '端口必须小于65536')
