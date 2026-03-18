@@ -15,9 +15,13 @@ export class APIClient {
 
   private async request<T>(url: string, options: RequestInit = {}): Promise<T> {
     const headers: any = {
-      "Content-Type": "application/json",
       "x-user-id": this.userId,
     };
+
+    // Only send JSON content-type when we actually send a body.
+    if (options.body !== undefined) {
+      headers["Content-Type"] = "application/json";
+    }
 
     const response = await fetch(API_BASE + url, {
       headers,

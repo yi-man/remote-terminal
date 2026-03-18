@@ -1,12 +1,15 @@
 import { ADD_CONNECTION_API_REQUEST } from '../../src/api/data/connection';
 
+const PW_SSH_PORT = Number(process.env.PW_SSH_PORT || 22222);
+
 export const TEST_CONNECTION = {
   name: ADD_CONNECTION_API_REQUEST.name,
-  host: ADD_CONNECTION_API_REQUEST.host,
-  port: ADD_CONNECTION_API_REQUEST.port,
-  username: ADD_CONNECTION_API_REQUEST.username,
+  // Prefer a stable local sshd container for integration tests.
+  host: '127.0.0.1',
+  port: PW_SSH_PORT,
+  username: 'pwtest',
   auth_type: ADD_CONNECTION_API_REQUEST.auth_type as 'password' | 'privateKey',
-  password: ADD_CONNECTION_API_REQUEST.password,
+  password: 'pwtest',
   private_key: ADD_CONNECTION_API_REQUEST.private_key,
   passphrase: ADD_CONNECTION_API_REQUEST.passphrase,
 };

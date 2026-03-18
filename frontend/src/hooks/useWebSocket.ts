@@ -15,6 +15,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
   const socketRef = useRef<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [reused, setReused] = useState(false);
 
   const connect = useCallback((rows: number = 24, cols: number = 80) => {
     if (socketRef.current?.connected) {
@@ -22,6 +23,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
     }
 
     setConnecting(true);
+    setReused(false);
 
     const socket = io({
       path: '/socket.io/',
@@ -39,6 +41,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       console.log('SSH connected', data);
       setConnected(true);
       setConnecting(false);
+      setReused(!!data?.reused);
       onConnected?.();
     });
 
@@ -50,12 +53,14 @@ export function useWebSocket(options: UseWebSocketOptions) {
       console.error('WebSocket error:', error);
       setConnected(false);
       setConnecting(false);
+      setReused(false);
       onError?.(error.message);
     });
 
     socket.on('disconnect', () => {
       console.log('WebSocket disconnected');
       setConnected(false);
+      setReused(false);
       onDisconnect?.();
     });
 
@@ -69,6 +74,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       socketRef.current = null;
       setConnected(false);
       setConnecting(false);
+      setReused(false);
     }
   }, []);
 
@@ -99,6 +105,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
   return {
     connected,
     connecting,
+    reused,
     connect,
     disconnect,
     sendData,

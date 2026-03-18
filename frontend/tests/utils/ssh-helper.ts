@@ -12,25 +12,41 @@ export class SSHHelper {
     // Wait for terminal container to be visible
     await this.page.waitForSelector('[data-testid="terminal-container"]', { timeout });
 
-    // Wait a bit for connection to establish and prompt to appear
-    await this.page.waitForTimeout(2000);
+    // Wait for connection to be established (real SSH path)
+    await expect(this.page.locator('[data-testid="connection-status-text"]')).toContainText('已连接', {
+      timeout,
+    });
+
+    // Give server a moment to flush initial prompt
+    await this.page.waitForTimeout(500);
   }
 
   // Send command to terminal
   async sendCommand(command: string) {
-    const terminal = this.page.locator('[data-testid="terminal-container"]');
-    await terminal.focus();
+    // xterm uses a hidden textarea for input; focusing it is more reliable than focusing container.
+    const input = this.page.locator('.xterm-helper-textarea');
+    if (await input.count()) {
+      await input.focus();
+    } else {
+      const terminal = this.page.locator('[data-testid="terminal-container"]');
+      await terminal.focus();
+    }
     await this.page.keyboard.type(command);
     await this.page.keyboard.press('Enter');
   }
 
   // Verify terminal contains text
   async expectTerminalContains(text: string, timeout = 10000) {
-    // Check the terminal output - this is simplified
-    // xterm.js renders to canvas, so we might need a different approach
     await this.page.waitForFunction(
       (expectedText) => {
-        return document.body.textContent?.includes(expectedText);
+        const mirror = document.querySelector('[data-testid="terminal-output-mirror"]');
+        if (mirror && (mirror.textContent || '').includes(expectedText)) {
+          return true;
+        }
+
+        // Fallback: xterm.js may render rows into DOM under .xterm-rows.
+        const rows = document.querySelector('.xterm-rows');
+        return (rows?.textContent || '').includes(expectedText);
       },
       text,
       { timeout }
