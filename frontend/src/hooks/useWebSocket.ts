@@ -16,14 +16,35 @@ export function useWebSocket(options: UseWebSocketOptions) {
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [reused, setReused] = useState(false);
+  const [serverEpoch, setServerEpoch] = useState<number | null>(null);
+  const [forceNewApplied, setForceNewApplied] = useState<boolean | null>(null);
+  const epochKey = `rt_epoch:${connectionId}`;
+  const epochRef = useRef<number>(0);
+  const lastEpochKeyRef = useRef<string>('');
 
-  const connect = useCallback((rows: number = 24, cols: number = 80) => {
+  // Synchronously load epoch for the current connectionId so that even if the
+  // websocket connects immediately, we still send the correct clientEpoch.
+  if (lastEpochKeyRef.current !== epochKey) {
+    lastEpochKeyRef.current = epochKey;
+    try {
+      const raw = sessionStorage.getItem(epochKey);
+      const n = raw ? Number(raw) : 0;
+      epochRef.current = Number.isFinite(n) ? n : 0;
+    } catch {
+      epochRef.current = 0;
+    }
+  }
+
+  const connect = useCallback(
+    (rows: number = 24, cols: number = 80, opts?: { forceNew?: boolean }) => {
     if (socketRef.current?.connected) {
       return;
     }
 
     setConnecting(true);
     setReused(false);
+    setServerEpoch(null);
+    setForceNewApplied(null);
 
     const socket = io({
       path: '/socket.io/',
@@ -34,7 +55,14 @@ export function useWebSocket(options: UseWebSocketOptions) {
 
     socket.on('connect', () => {
       console.log('WebSocket connected');
-      socket.emit('connect-ssh', { userId, connectionId, rows, cols });
+      socket.emit('connect-ssh', {
+        userId,
+        connectionId,
+        rows,
+        cols,
+        clientEpoch: epochRef.current,
+        forceNew: !!opts?.forceNew,
+      });
     });
 
     socket.on('connected', (data?: any) => {
@@ -42,6 +70,16 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnected(true);
       setConnecting(false);
       setReused(!!data?.reused);
+      if (typeof data?.forceNewApplied === 'boolean') {
+        setForceNewApplied(data.forceNewApplied);
+      } else {
+        setForceNewApplied(null);
+      }
+      if (typeof data?.epoch === 'number') {
+        epochRef.current = data.epoch;
+        sessionStorage.setItem(epochKey, String(epochRef.current));
+        setServerEpoch(data.epoch);
+      }
       onConnected?.();
     });
 
@@ -54,6 +92,8 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnected(false);
       setConnecting(false);
       setReused(false);
+      setServerEpoch(null);
+      setForceNewApplied(null);
       onError?.(error.message);
     });
 
@@ -61,12 +101,15 @@ export function useWebSocket(options: UseWebSocketOptions) {
       console.log('WebSocket disconnected');
       setConnected(false);
       setReused(false);
+      setServerEpoch(null);
+      setForceNewApplied(null);
       onDisconnect?.();
     });
 
     // 不再返回清理函数，因为 connect 可能会被多次调用，需要确保只清理正确的 socket
     // 所有清理都应该在 disconnect 函数中统一处理
-  }, [userId, connectionId, onConnected, onData, onError, onDisconnect]);
+  },
+  [userId, connectionId, onConnected, onData, onError, onDisconnect]);
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {
@@ -75,6 +118,8 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnected(false);
       setConnecting(false);
       setReused(false);
+      setServerEpoch(null);
+      setForceNewApplied(null);
     }
   }, []);
 
@@ -90,11 +135,35 @@ export function useWebSocket(options: UseWebSocketOptions) {
     }
   }, []);
 
-  const killSession = useCallback(() => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('kill-session');
-    }
-  }, []);
+  const killSession = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      // Advance epoch locally so the next connect won't reuse even if kill-session
+      // cannot be delivered due to websocket instability.
+      epochRef.current += 1;
+      sessionStorage.setItem(epochKey, String(epochRef.current));
+
+      if (!socketRef.current?.connected) {
+        resolve();
+        return;
+      }
+
+      // Don't block UI forever if the websocket is unstable.
+      const timeoutMs = 1000;
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      }, timeoutMs);
+
+      socketRef.current.emit('kill-session', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }, [epochKey]);
 
   useEffect(() => {
     return () => {
@@ -106,6 +175,8 @@ export function useWebSocket(options: UseWebSocketOptions) {
     connected,
     connecting,
     reused,
+    serverEpoch,
+    forceNewApplied,
     connect,
     disconnect,
     sendData,

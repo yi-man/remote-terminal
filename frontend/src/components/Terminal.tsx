@@ -7,6 +7,11 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { useUserId } from '../hooks/useUserId';
 import '@xterm/xterm/css/xterm.css';
 
+// In-memory "forceNew" handoff between an explicit disconnect click and the next Terminal mount.
+// This avoids relying on browser storage being reliably writable/parsable in CI.
+const pendingForceNewByConnectionId = new Map<string, number>();
+const FORCE_NEW_TTL_MS = 60_000;
+
 interface TerminalProps {
   connectionId: string;
   onDisconnect: () => void;
@@ -39,6 +44,9 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
       setErrorMessage(error);
     },
   });
+
+  const epochKey = `rt_epoch:${connectionId}`;
+  const forceNewKey = `rt_force_new_session:${connectionId}`;
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -97,7 +105,20 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
 
     window.addEventListener('resize', handleResize);
 
-    connect(terminal.rows, terminal.cols);
+    const fromMemory = (() => {
+      const ts = pendingForceNewByConnectionId.get(connectionId);
+      if (!ts) return false;
+      if (Date.now() - ts > FORCE_NEW_TTL_MS) {
+        pendingForceNewByConnectionId.delete(connectionId);
+        return false;
+      }
+      return true;
+    })();
+
+    const fromSessionStorage = sessionStorage.getItem(forceNewKey) === '1';
+    const forceNew = fromMemory || fromSessionStorage;
+    if (forceNew) sessionStorage.removeItem(forceNewKey);
+    connect(terminal.rows, terminal.cols, { forceNew });
 
     return () => {
       isDisposedRef.current = true;
@@ -141,11 +162,30 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     }
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     // 立即标记为已废弃，防止后续操作
     isDisposedRef.current = true;
+    // Explicit disconnect: force server to create a non-reusable session on next connect.
+    try {
+      sessionStorage.setItem(forceNewKey, '1');
+      pendingForceNewByConnectionId.set(connectionId, Date.now());
+    } catch {
+      // Fallback to in-memory even if storage is unavailable.
+      pendingForceNewByConnectionId.set(connectionId, Date.now());
+      // ignore
+    }
+    // Advance epoch locally so the next connect can't reuse an old session
+    // even if kill-session cannot be delivered due to websocket instability.
+    try {
+      const raw = sessionStorage.getItem(epochKey);
+      const n = raw ? Number(raw) : 0;
+      const next = (Number.isFinite(n) ? n : 0) + 1;
+      sessionStorage.setItem(epochKey, String(next));
+    } catch {
+      // ignore
+    }
     // 发送 kill-session 事件来真正终止 SSH 会话
-    killSession();
+    await killSession();
     // 断开 socket 连接
     disconnect();
     // 直接调用 onDisconnect 导航回列表页面
