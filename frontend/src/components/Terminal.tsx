@@ -193,6 +193,13 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     onDisconnect();
   };
 
+  const handleDisconnectClick = () => {
+    if (!confirm('确定要断开当前终端连接吗？')) {
+      return;
+    }
+    void handleDisconnect();
+  };
+
   const getStatusText = () => {
     if (errorMessage) return '连接失败';
     if (connected) return reused ? '已连接（复用）' : '已连接';
@@ -217,7 +224,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
           </span>
         </div>
         <button
-          onClick={handleDisconnect}
+          onClick={handleDisconnectClick}
           className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
         >
           断开
