@@ -26,9 +26,8 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const outputMirrorRef = useRef<string>('');
   const [outputMirror, setOutputMirror] = useState<string>('');
-  const [forceNewSent, setForceNewSent] = useState<boolean | null>(null);
 
-  const { connected, connecting, reused, serverEpoch, forceNewApplied, connect, disconnect, sendData, resize, killSession } = useWebSocket({
+  const { connected, connecting, reused, connect, disconnect, sendData, resize, killSession } = useWebSocket({
     userId,
     connectionId,
     onConnected: () => {
@@ -118,7 +117,6 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
 
     const fromSessionStorage = sessionStorage.getItem(forceNewKey) === '1';
     const forceNew = fromMemory || fromSessionStorage;
-    setForceNewSent(forceNew);
     if (forceNew) sessionStorage.removeItem(forceNewKey);
     connect(terminal.rows, terminal.cols, { forceNew });
 
@@ -171,7 +169,6 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     try {
       sessionStorage.setItem(forceNewKey, '1');
       pendingForceNewByConnectionId.set(connectionId, Date.now());
-      setForceNewSent(true);
     } catch {
       // Fallback to in-memory even if storage is unavailable.
       pendingForceNewByConnectionId.set(connectionId, Date.now());
@@ -217,14 +214,6 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
         }`} />
           <span data-testid="connection-status-text" className="text-gray-300 text-sm">
             {getStatusText()}
-          </span>
-          <span data-testid="connection-debug-epoch" className="text-gray-400 text-xs">
-            epoch={serverEpoch ?? '-'}
-            {reused ? ' reused=1' : ' reused=0'}
-            {typeof forceNewApplied === 'boolean' ? ` forceNewApplied=${forceNewApplied ? 1 : 0}` : ' forceNewApplied=-'}
-            {typeof forceNewSent === 'boolean'
-              ? ` clientForceNewSent=${forceNewSent ? 1 : 0}`
-              : ' clientForceNewSent=-'}
           </span>
         </div>
         <button
