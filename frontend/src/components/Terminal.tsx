@@ -132,6 +132,19 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     };
   }, [connectionId]);
 
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Prevent accidental refresh/close while user is on terminal page.
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
   const handleKeyPress = (key: string) => {
     const terminal = xtermRef.current;
     if (!terminal) return;
