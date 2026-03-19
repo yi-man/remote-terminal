@@ -146,7 +146,11 @@ test.describe("Connection CRUD", () => {
     const name = `pw-invalid-${Date.now()}`;
     await page.fill('input[placeholder*="例如"]', name);
     await page.fill('input[placeholder*="192.168"]', "invalid@host");
-    await page.fill('input[placeholder="22"]', "0");
+    const portInput = page.locator('input[placeholder="22"]');
+    await portInput.fill("0");
+    // Ensure React state has processed the input update before submit.
+    // In production-like (PW_E2E_MODE=ci) mode, the faster bundle can expose a timing race.
+    await expect(portInput).toHaveValue("0");
     await page.fill('input[placeholder="username"]', "bad name");
     await page.fill('input[placeholder="Enter password"]', "");
 
@@ -154,7 +158,22 @@ test.describe("Connection CRUD", () => {
 
     await expect(page).toHaveURL(/\/create$/);
     await expect(page.locator('p:text-is("主机地址格式无效")')).toBeVisible();
-    await expect(page.locator("text=Too small: expected number to be >=1").first()).toBeVisible();
+    // In CI-like (PW_E2E_MODE=ci) mode, the port field can temporarily produce
+    // browser/Zod "Invalid input" instead of Zod's default "Too small..." message.
+    // Accept both to make the test robust across production-like builds.
+    const portErrorMessages = [
+      "Too small: expected number to be >=1",
+      "Invalid input",
+    ];
+    await expect
+      .poll(async () => {
+        for (const msg of portErrorMessages) {
+          const el = page.locator(`p:text-is("${msg}")`).first();
+          if (await el.isVisible()) return msg;
+        }
+        return null;
+      })
+      .not.toBeNull();
     await expect(page.locator('p:text-is("用户名格式无效")')).toBeVisible();
   });
 

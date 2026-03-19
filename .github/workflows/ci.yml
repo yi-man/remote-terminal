@@ -41,11 +41,16 @@ jobs:
       - name: Install dependencies
         run: make install
 
+      - name: Build (frontend dist + backend dist)
+        run: make build
+
       - name: Install Playwright browsers
         working-directory: frontend
         run: pnpm exec playwright install --with-deps
 
       - name: Run tests
+        env:
+          PW_E2E_MODE: ci
         run: make test
 
       - name: Upload Playwright artifacts
