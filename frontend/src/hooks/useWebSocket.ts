@@ -17,6 +17,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
   const [connecting, setConnecting] = useState(false);
   const [reused, setReused] = useState(false);
   const [serverEpoch, setServerEpoch] = useState<number | null>(null);
+  const [forceNewApplied, setForceNewApplied] = useState<boolean | null>(null);
   const epochKey = `rt_epoch:${connectionId}`;
   const epochRef = useRef<number>(0);
   const lastEpochKeyRef = useRef<string>('');
@@ -43,6 +44,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
     setConnecting(true);
     setReused(false);
     setServerEpoch(null);
+    setForceNewApplied(null);
 
     const socket = io({
       path: '/socket.io/',
@@ -68,6 +70,11 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnected(true);
       setConnecting(false);
       setReused(!!data?.reused);
+      if (typeof data?.forceNewApplied === 'boolean') {
+        setForceNewApplied(data.forceNewApplied);
+      } else {
+        setForceNewApplied(null);
+      }
       if (typeof data?.epoch === 'number') {
         epochRef.current = data.epoch;
         localStorage.setItem(epochKey, String(epochRef.current));
@@ -86,6 +93,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnecting(false);
       setReused(false);
       setServerEpoch(null);
+      setForceNewApplied(null);
       onError?.(error.message);
     });
 
@@ -94,6 +102,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnected(false);
       setReused(false);
       setServerEpoch(null);
+      setForceNewApplied(null);
       onDisconnect?.();
     });
 
@@ -110,6 +119,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnecting(false);
       setReused(false);
       setServerEpoch(null);
+      setForceNewApplied(null);
     }
   }, []);
 
@@ -166,6 +176,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
     connecting,
     reused,
     serverEpoch,
+    forceNewApplied,
     connect,
     disconnect,
     sendData,

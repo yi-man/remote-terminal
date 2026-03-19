@@ -67,12 +67,14 @@ export async function socketIoPlugin(app: FastifyInstance) {
 
         // Epoch-based session reuse.
         let serverEpoch = sessionManager.getEpoch(userId, connectionId);
+        let appliedForceNew = false;
         if (forceNew) {
           // Explicit disconnect requested: never reuse an existing session.
           const nextEpoch = serverEpoch + 1;
           sessionManager.setEpoch(userId, connectionId, nextEpoch);
           sessionManager.removeSessionByConnection(userId, connectionId);
           serverEpoch = nextEpoch;
+          appliedForceNew = true;
         }
         // If the clientEpoch is missing/invalid, we intentionally treat it as "moved on"
         // so the reconnect cannot reuse an old session.
@@ -184,7 +186,7 @@ export async function socketIoPlugin(app: FastifyInstance) {
           }
 
           // 发送 connected 事件通知前端会话已复用
-          socket.emit('connected', { reused: true, epoch: serverEpoch });
+          socket.emit('connected', { reused: true, epoch: serverEpoch, forceNewApplied: appliedForceNew });
 
           // 发送历史记录
           socket.emit('data', historyToSend);
@@ -235,7 +237,7 @@ export async function socketIoPlugin(app: FastifyInstance) {
           return;
         }
 
-        socket.emit('connected', { epoch: serverEpoch });
+        socket.emit('connected', { epoch: serverEpoch, forceNewApplied: appliedForceNew });
         console.log('SSH connected successfully');
 
       } catch (error: any) {

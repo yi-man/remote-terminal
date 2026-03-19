@@ -22,7 +22,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const outputMirrorRef = useRef<string>('');
   const [outputMirror, setOutputMirror] = useState<string>('');
 
-  const { connected, connecting, reused, serverEpoch, connect, disconnect, sendData, resize, killSession } = useWebSocket({
+  const { connected, connecting, reused, serverEpoch, forceNewApplied, connect, disconnect, sendData, resize, killSession } = useWebSocket({
     userId,
     connectionId,
     onConnected: () => {
@@ -199,7 +199,9 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
             {getStatusText()}
           </span>
           <span data-testid="connection-debug-epoch" className="text-gray-400 text-xs">
-            epoch={serverEpoch ?? '-'}{reused ? ' reused=1' : ' reused=0'}
+            epoch={serverEpoch ?? '-'}
+            {reused ? ' reused=1' : ' reused=0'}
+            {typeof forceNewApplied === 'boolean' ? ` forceNewApplied=${forceNewApplied ? 1 : 0}` : ' forceNewApplied=-'}
           </span>
         </div>
         <button
