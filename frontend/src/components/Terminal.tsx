@@ -113,7 +113,6 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
         pendingForceNewByConnectionId.delete(connectionId);
         return false;
       }
-      pendingForceNewByConnectionId.delete(connectionId);
       return true;
     })();
 

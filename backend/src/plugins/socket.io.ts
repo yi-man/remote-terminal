@@ -266,7 +266,10 @@ function setupSocketListeners(socket: any, sshClient: SSHClient) {
     console.log(`Socket disconnected, session: ${sessionId}`);
     // 这里不立即清除会话，允许刷新页面复用会话
     // 如果需要在 socket 断开后立即清除会话，可以取消下面的注释
-    // if (sessionId) {
+    // if (socket.data.userId && socket.data.connectionId) {
+    //   sessionManager.bumpEpoch(socket.data.userId, socket.data.connectionId);
+    //   sessionManager.removeSessionByConnection(socket.data.userId, socket.data.connectionId);
+    // } else if (sessionId) {
     //   sessionManager.removeSession(sessionId);
     // }
   });
