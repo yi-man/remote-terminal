@@ -21,6 +21,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const outputMirrorRef = useRef<string>('');
   const [outputMirror, setOutputMirror] = useState<string>('');
+  const [forceNewSent, setForceNewSent] = useState<boolean | null>(null);
 
   const { connected, connecting, reused, serverEpoch, forceNewApplied, connect, disconnect, sendData, resize, killSession } = useWebSocket({
     userId,
@@ -101,9 +102,8 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     window.addEventListener('resize', handleResize);
 
     const forceNew = localStorage.getItem(forceNewKey) === '1';
-    if (forceNew) {
-      localStorage.removeItem(forceNewKey);
-    }
+    setForceNewSent(forceNew);
+    if (forceNew) localStorage.removeItem(forceNewKey);
     connect(terminal.rows, terminal.cols, { forceNew });
 
     return () => {
@@ -154,6 +154,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     // Explicit disconnect: force server to create a non-reusable session on next connect.
     try {
       localStorage.setItem(forceNewKey, '1');
+      setForceNewSent(true);
     } catch {
       // ignore
     }
@@ -202,6 +203,9 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
             epoch={serverEpoch ?? '-'}
             {reused ? ' reused=1' : ' reused=0'}
             {typeof forceNewApplied === 'boolean' ? ` forceNewApplied=${forceNewApplied ? 1 : 0}` : ' forceNewApplied=-'}
+            {typeof forceNewSent === 'boolean'
+              ? ` clientForceNewSent=${forceNewSent ? 1 : 0}`
+              : ' clientForceNewSent=-'}
           </span>
         </div>
         <button
