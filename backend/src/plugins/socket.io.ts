@@ -66,7 +66,12 @@ export async function socketIoPlugin(app: FastifyInstance) {
 
         // Epoch-based session reuse.
         let serverEpoch = sessionManager.getEpoch(userId, connectionId);
-        const clientEpochNum = typeof clientEpoch === 'number' ? clientEpoch : serverEpoch;
+        // If the clientEpoch is missing/invalid, we intentionally treat it as "moved on"
+        // so the reconnect cannot reuse an old session.
+        const clientEpochNum =
+          typeof clientEpoch === 'number' && Number.isFinite(clientEpoch)
+            ? clientEpoch
+            : serverEpoch + 1;
         if (clientEpochNum !== serverEpoch) {
           // Client has moved on (e.g. user explicitly disconnected). Do not reuse.
           const nextEpoch = Math.max(serverEpoch, clientEpochNum);
