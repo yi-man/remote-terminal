@@ -138,6 +138,9 @@ test.describe("SSH Terminal", () => {
     await page.waitForTimeout(2000);
 
     // 5. Click disconnect button
+    page.once("dialog", async (dialog) => {
+      await dialog.accept();
+    });
     await page.click('button:has-text("断开")');
 
     // 6. Wait for terminal page to be disposed and connection list to appear
@@ -176,6 +179,9 @@ test.describe("SSH Terminal", () => {
     });
 
     // 11. Disconnect again to clean up
+    page.once("dialog", async (dialog) => {
+      await dialog.accept();
+    });
     await page.click('button:has-text("断开")');
     await expect(page.locator('[data-testid="terminal-page"]')).not.toBeVisible(
       { timeout: 10000 },
@@ -224,6 +230,9 @@ test.describe("SSH Terminal", () => {
       });
 
       // Disconnect triggers kill-session in UI
+      page.once("dialog", async (dialog) => {
+        await dialog.accept();
+      });
       await page.click('button:has-text("断开")');
       await expect(
         page.locator('[data-testid="terminal-page"]'),
