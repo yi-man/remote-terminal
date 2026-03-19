@@ -101,9 +101,9 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
 
     window.addEventListener('resize', handleResize);
 
-    const forceNew = localStorage.getItem(forceNewKey) === '1';
+    const forceNew = sessionStorage.getItem(forceNewKey) === '1';
     setForceNewSent(forceNew);
-    if (forceNew) localStorage.removeItem(forceNewKey);
+    if (forceNew) sessionStorage.removeItem(forceNewKey);
     connect(terminal.rows, terminal.cols, { forceNew });
 
     return () => {
@@ -153,7 +153,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     isDisposedRef.current = true;
     // Explicit disconnect: force server to create a non-reusable session on next connect.
     try {
-      localStorage.setItem(forceNewKey, '1');
+      sessionStorage.setItem(forceNewKey, '1');
       setForceNewSent(true);
     } catch {
       // ignore
@@ -161,10 +161,10 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     // Advance epoch locally so the next connect can't reuse an old session
     // even if kill-session cannot be delivered due to websocket instability.
     try {
-      const raw = localStorage.getItem(epochKey);
+      const raw = sessionStorage.getItem(epochKey);
       const n = raw ? Number(raw) : 0;
       const next = (Number.isFinite(n) ? n : 0) + 1;
-      localStorage.setItem(epochKey, String(next));
+      sessionStorage.setItem(epochKey, String(next));
     } catch {
       // ignore
     }

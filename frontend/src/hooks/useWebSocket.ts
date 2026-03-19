@@ -27,7 +27,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
   if (lastEpochKeyRef.current !== epochKey) {
     lastEpochKeyRef.current = epochKey;
     try {
-      const raw = localStorage.getItem(epochKey);
+      const raw = sessionStorage.getItem(epochKey);
       const n = raw ? Number(raw) : 0;
       epochRef.current = Number.isFinite(n) ? n : 0;
     } catch {
@@ -77,7 +77,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       }
       if (typeof data?.epoch === 'number') {
         epochRef.current = data.epoch;
-        localStorage.setItem(epochKey, String(epochRef.current));
+        sessionStorage.setItem(epochKey, String(epochRef.current));
         setServerEpoch(data.epoch);
       }
       onConnected?.();
@@ -140,7 +140,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       // Advance epoch locally so the next connect won't reuse even if kill-session
       // cannot be delivered due to websocket instability.
       epochRef.current += 1;
-      localStorage.setItem(epochKey, String(epochRef.current));
+      sessionStorage.setItem(epochKey, String(epochRef.current));
 
       if (!socketRef.current?.connected) {
         resolve();
