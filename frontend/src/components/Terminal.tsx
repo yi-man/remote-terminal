@@ -7,6 +7,11 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { useUserId } from '../hooks/useUserId';
 import '@xterm/xterm/css/xterm.css';
 
+// In-memory "forceNew" handoff between an explicit disconnect click and the next Terminal mount.
+// This avoids relying on browser storage being reliably writable/parsable in CI.
+const pendingForceNewByConnectionId = new Map<string, number>();
+const FORCE_NEW_TTL_MS = 60_000;
+
 interface TerminalProps {
   connectionId: string;
   onDisconnect: () => void;
@@ -101,7 +106,19 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
 
     window.addEventListener('resize', handleResize);
 
-    const forceNew = sessionStorage.getItem(forceNewKey) === '1';
+    const fromMemory = (() => {
+      const ts = pendingForceNewByConnectionId.get(connectionId);
+      if (!ts) return false;
+      if (Date.now() - ts > FORCE_NEW_TTL_MS) {
+        pendingForceNewByConnectionId.delete(connectionId);
+        return false;
+      }
+      pendingForceNewByConnectionId.delete(connectionId);
+      return true;
+    })();
+
+    const fromSessionStorage = sessionStorage.getItem(forceNewKey) === '1';
+    const forceNew = fromMemory || fromSessionStorage;
     setForceNewSent(forceNew);
     if (forceNew) sessionStorage.removeItem(forceNewKey);
     connect(terminal.rows, terminal.cols, { forceNew });
@@ -154,8 +171,11 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     // Explicit disconnect: force server to create a non-reusable session on next connect.
     try {
       sessionStorage.setItem(forceNewKey, '1');
+      pendingForceNewByConnectionId.set(connectionId, Date.now());
       setForceNewSent(true);
     } catch {
+      // Fallback to in-memory even if storage is unavailable.
+      pendingForceNewByConnectionId.set(connectionId, Date.now());
       // ignore
     }
     // Advance epoch locally so the next connect can't reuse an old session
