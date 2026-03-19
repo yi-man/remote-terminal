@@ -16,6 +16,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
   const [connected, setConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [reused, setReused] = useState(false);
+  const [serverEpoch, setServerEpoch] = useState<number | null>(null);
   const epochKey = `rt_epoch:${connectionId}`;
   const epochRef = useRef<number>(0);
   const lastEpochKeyRef = useRef<string>('');
@@ -33,13 +34,15 @@ export function useWebSocket(options: UseWebSocketOptions) {
     }
   }
 
-  const connect = useCallback((rows: number = 24, cols: number = 80) => {
+  const connect = useCallback(
+    (rows: number = 24, cols: number = 80, opts?: { forceNew?: boolean }) => {
     if (socketRef.current?.connected) {
       return;
     }
 
     setConnecting(true);
     setReused(false);
+    setServerEpoch(null);
 
     const socket = io({
       path: '/socket.io/',
@@ -50,7 +53,14 @@ export function useWebSocket(options: UseWebSocketOptions) {
 
     socket.on('connect', () => {
       console.log('WebSocket connected');
-      socket.emit('connect-ssh', { userId, connectionId, rows, cols, clientEpoch: epochRef.current });
+      socket.emit('connect-ssh', {
+        userId,
+        connectionId,
+        rows,
+        cols,
+        clientEpoch: epochRef.current,
+        forceNew: !!opts?.forceNew,
+      });
     });
 
     socket.on('connected', (data?: any) => {
@@ -61,6 +71,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       if (typeof data?.epoch === 'number') {
         epochRef.current = data.epoch;
         localStorage.setItem(epochKey, String(epochRef.current));
+        setServerEpoch(data.epoch);
       }
       onConnected?.();
     });
@@ -74,6 +85,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnected(false);
       setConnecting(false);
       setReused(false);
+      setServerEpoch(null);
       onError?.(error.message);
     });
 
@@ -81,12 +93,14 @@ export function useWebSocket(options: UseWebSocketOptions) {
       console.log('WebSocket disconnected');
       setConnected(false);
       setReused(false);
+      setServerEpoch(null);
       onDisconnect?.();
     });
 
     // 不再返回清理函数，因为 connect 可能会被多次调用，需要确保只清理正确的 socket
     // 所有清理都应该在 disconnect 函数中统一处理
-  }, [userId, connectionId, onConnected, onData, onError, onDisconnect]);
+  },
+  [userId, connectionId, onConnected, onData, onError, onDisconnect]);
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {
@@ -95,6 +109,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
       setConnected(false);
       setConnecting(false);
       setReused(false);
+      setServerEpoch(null);
     }
   }, []);
 
@@ -150,6 +165,7 @@ export function useWebSocket(options: UseWebSocketOptions) {
     connected,
     connecting,
     reused,
+    serverEpoch,
     connect,
     disconnect,
     sendData,

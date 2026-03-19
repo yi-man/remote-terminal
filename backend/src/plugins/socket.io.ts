@@ -10,6 +10,7 @@ interface ConnectSSHData {
   rows?: number;
   cols?: number;
   clientEpoch?: number;
+  forceNew?: boolean;
 }
 
 interface ResizeData {
@@ -32,7 +33,7 @@ export async function socketIoPlugin(app: FastifyInstance) {
       console.log('Socket disconnected:', socket.id);
     });
 
-    socket.on('connect-ssh', async ({ userId, connectionId, rows, cols, clientEpoch }: ConnectSSHData) => {
+    socket.on('connect-ssh', async ({ userId, connectionId, rows, cols, clientEpoch, forceNew }: ConnectSSHData) => {
       try {
         console.log(`Connecting SSH for user ${userId}, connection ${connectionId}`);
         // Persist identifiers early to avoid races with kill-session/disconnect.
@@ -66,6 +67,13 @@ export async function socketIoPlugin(app: FastifyInstance) {
 
         // Epoch-based session reuse.
         let serverEpoch = sessionManager.getEpoch(userId, connectionId);
+        if (forceNew) {
+          // Explicit disconnect requested: never reuse an existing session.
+          const nextEpoch = serverEpoch + 1;
+          sessionManager.setEpoch(userId, connectionId, nextEpoch);
+          sessionManager.removeSessionByConnection(userId, connectionId);
+          serverEpoch = nextEpoch;
+        }
         // If the clientEpoch is missing/invalid, we intentionally treat it as "moved on"
         // so the reconnect cannot reuse an old session.
         const clientEpochNum =

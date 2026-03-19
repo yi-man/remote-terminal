@@ -22,7 +22,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const outputMirrorRef = useRef<string>('');
   const [outputMirror, setOutputMirror] = useState<string>('');
 
-  const { connected, connecting, reused, connect, disconnect, sendData, resize, killSession } = useWebSocket({
+  const { connected, connecting, reused, serverEpoch, connect, disconnect, sendData, resize, killSession } = useWebSocket({
     userId,
     connectionId,
     onConnected: () => {
@@ -41,6 +41,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   });
 
   const epochKey = `rt_epoch:${connectionId}`;
+  const forceNewKey = `rt_force_new_session:${connectionId}`;
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -99,7 +100,11 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
 
     window.addEventListener('resize', handleResize);
 
-    connect(terminal.rows, terminal.cols);
+    const forceNew = localStorage.getItem(forceNewKey) === '1';
+    if (forceNew) {
+      localStorage.removeItem(forceNewKey);
+    }
+    connect(terminal.rows, terminal.cols, { forceNew });
 
     return () => {
       isDisposedRef.current = true;
@@ -146,6 +151,12 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
   const handleDisconnect = async () => {
     // 立即标记为已废弃，防止后续操作
     isDisposedRef.current = true;
+    // Explicit disconnect: force server to create a non-reusable session on next connect.
+    try {
+      localStorage.setItem(forceNewKey, '1');
+    } catch {
+      // ignore
+    }
     // Advance epoch locally so the next connect can't reuse an old session
     // even if kill-session cannot be delivered due to websocket instability.
     try {
@@ -186,6 +197,9 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
         }`} />
           <span data-testid="connection-status-text" className="text-gray-300 text-sm">
             {getStatusText()}
+          </span>
+          <span data-testid="connection-debug-epoch" className="text-gray-400 text-xs">
+            epoch={serverEpoch ?? '-'}{reused ? ' reused=1' : ' reused=0'}
           </span>
         </div>
         <button
