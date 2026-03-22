@@ -90,7 +90,6 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     });
 
     const handleResize = () => {
-      // 检查 terminal 是否还存在且有效
       if (!isDisposedRef.current && fitAddonRef.current && xtermRef.current) {
         try {
           fitAddonRef.current.fit();
@@ -104,6 +103,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     };
 
     window.addEventListener('resize', handleResize);
+    window.visualViewport?.addEventListener('resize', handleResize);
 
     const fromMemory = (() => {
       const ts = pendingForceNewByConnectionId.get(connectionId);
@@ -123,7 +123,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     return () => {
       isDisposedRef.current = true;
       window.removeEventListener('resize', handleResize);
-      // 清理引用，避免访问已销毁对象
+      window.visualViewport?.removeEventListener('resize', handleResize);
       xtermRef.current = null;
       fitAddonRef.current = null;
       // 先断开 socket 连接，再清理终端
@@ -248,7 +248,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
           <p className="text-red-300 text-sm">{errorMessage}</p>
         </div>
       )}
-      <div data-testid="terminal-container" ref={terminalRef} className="flex-1" />
+      <div data-testid="terminal-container" ref={terminalRef} className="flex-1 min-h-0 overflow-hidden" />
       <Toolbar onKeyPress={handleKeyPress} />
     </div>
   );
