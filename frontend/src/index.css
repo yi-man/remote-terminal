@@ -31,11 +31,6 @@ html, body {
   width: 100%;
 }
 
-.xterm-screen {
-  width: 100% !important;
-  height: 100% !important;
-}
-
 .xterm-viewport {
   overflow: hidden !important;
 }

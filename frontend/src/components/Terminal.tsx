@@ -67,20 +67,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
 
-    // 确保在终端打开后稍等一下再调用 fit
-    // 这样可以避免 fitAddon 在元素未完全准备好时就尝试调整大小
     terminal.open(terminalRef.current);
-
-    // 使用 requestAnimationFrame 确保 DOM 已完全渲染
-    requestAnimationFrame(() => {
-      try {
-        if (fitAddon && terminalRef.current && !isDisposedRef.current) {
-          fitAddon.fit();
-        }
-      } catch (error) {
-        console.error('FitAddon error during initialization:', error);
-      }
-    });
 
     xtermRef.current = terminal;
     fitAddonRef.current = fitAddon;
@@ -89,21 +76,30 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
       sendData(data);
     });
 
-    const handleResize = () => {
-      if (!isDisposedRef.current && fitAddonRef.current && xtermRef.current) {
-        try {
-          fitAddonRef.current.fit();
-          if (connected) {
-            resize(xtermRef.current.rows, xtermRef.current.cols);
-          }
-        } catch (error) {
-          console.error('FitAddon error:', error);
+    let fitTimer: ReturnType<typeof setTimeout> | null = null;
+    const doFit = () => {
+      if (isDisposedRef.current || !fitAddonRef.current || !xtermRef.current) return;
+      try {
+        fitAddonRef.current.fit();
+        if (connected) {
+          resize(xtermRef.current.rows, xtermRef.current.cols);
         }
+      } catch (error) {
+        console.error('FitAddon error:', error);
       }
     };
+    const debouncedFit = () => {
+      if (fitTimer) clearTimeout(fitTimer);
+      fitTimer = setTimeout(doFit, 50);
+    };
 
-    window.addEventListener('resize', handleResize);
-    window.visualViewport?.addEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(() => {
+      debouncedFit();
+    });
+    resizeObserver.observe(terminalRef.current);
+
+    window.addEventListener('resize', debouncedFit);
+    window.visualViewport?.addEventListener('resize', debouncedFit);
 
     const fromMemory = (() => {
       const ts = pendingForceNewByConnectionId.get(connectionId);
@@ -122,11 +118,12 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
 
     return () => {
       isDisposedRef.current = true;
-      window.removeEventListener('resize', handleResize);
-      window.visualViewport?.removeEventListener('resize', handleResize);
+      if (fitTimer) clearTimeout(fitTimer);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', debouncedFit);
+      window.visualViewport?.removeEventListener('resize', debouncedFit);
       xtermRef.current = null;
       fitAddonRef.current = null;
-      // 先断开 socket 连接，再清理终端
       disconnect();
       terminal.dispose();
     };
