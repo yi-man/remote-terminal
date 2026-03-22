@@ -35,7 +35,7 @@ export function ConnectionListPage() {
           + 新连接
         </button>
       </div>
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-auto">
         <ConnectionList
           connections={connections}
           loading={loading}

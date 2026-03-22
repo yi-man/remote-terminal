@@ -67,20 +67,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     terminal.loadAddon(fitAddon);
     terminal.loadAddon(webLinksAddon);
 
-    // 确保在终端打开后稍等一下再调用 fit
-    // 这样可以避免 fitAddon 在元素未完全准备好时就尝试调整大小
     terminal.open(terminalRef.current);
-
-    // 使用 requestAnimationFrame 确保 DOM 已完全渲染
-    requestAnimationFrame(() => {
-      try {
-        if (fitAddon && terminalRef.current && !isDisposedRef.current) {
-          fitAddon.fit();
-        }
-      } catch (error) {
-        console.error('FitAddon error during initialization:', error);
-      }
-    });
 
     xtermRef.current = terminal;
     fitAddonRef.current = fitAddon;
@@ -89,21 +76,30 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
       sendData(data);
     });
 
-    const handleResize = () => {
-      // 检查 terminal 是否还存在且有效
-      if (!isDisposedRef.current && fitAddonRef.current && xtermRef.current) {
-        try {
-          fitAddonRef.current.fit();
-          if (connected) {
-            resize(xtermRef.current.rows, xtermRef.current.cols);
-          }
-        } catch (error) {
-          console.error('FitAddon error:', error);
+    let fitTimer: ReturnType<typeof setTimeout> | null = null;
+    const doFit = () => {
+      if (isDisposedRef.current || !fitAddonRef.current || !xtermRef.current) return;
+      try {
+        fitAddonRef.current.fit();
+        if (connected) {
+          resize(xtermRef.current.rows, xtermRef.current.cols);
         }
+      } catch (error) {
+        console.error('FitAddon error:', error);
       }
     };
+    const debouncedFit = () => {
+      if (fitTimer) clearTimeout(fitTimer);
+      fitTimer = setTimeout(doFit, 50);
+    };
 
-    window.addEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(() => {
+      debouncedFit();
+    });
+    resizeObserver.observe(terminalRef.current);
+
+    window.addEventListener('resize', debouncedFit);
+    window.visualViewport?.addEventListener('resize', debouncedFit);
 
     const fromMemory = (() => {
       const ts = pendingForceNewByConnectionId.get(connectionId);
@@ -118,15 +114,34 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     const fromSessionStorage = sessionStorage.getItem(forceNewKey) === '1';
     const forceNew = fromMemory || fromSessionStorage;
     if (forceNew) sessionStorage.removeItem(forceNewKey);
-    connect(terminal.rows, terminal.cols, { forceNew });
+
+    // FitAddon.proposeDimensions() returns undefined when cell dimensions
+    // are 0 (before xterm's first render). Poll until the renderer is
+    // ready, then fit and connect with correct dimensions.
+    let initRetries = 0;
+    const tryInitialFit = () => {
+      if (isDisposedRef.current) return;
+      const dims = fitAddon.proposeDimensions();
+      if (dims) {
+        doFit();
+        connect(terminal.rows, terminal.cols, { forceNew });
+      } else if (initRetries < 20) {
+        initRetries++;
+        setTimeout(tryInitialFit, 50);
+      } else {
+        connect(terminal.rows, terminal.cols, { forceNew });
+      }
+    };
+    requestAnimationFrame(tryInitialFit);
 
     return () => {
       isDisposedRef.current = true;
-      window.removeEventListener('resize', handleResize);
-      // 清理引用，避免访问已销毁对象
+      if (fitTimer) clearTimeout(fitTimer);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', debouncedFit);
+      window.visualViewport?.removeEventListener('resize', debouncedFit);
       xtermRef.current = null;
       fitAddonRef.current = null;
-      // 先断开 socket 连接，再清理终端
       disconnect();
       terminal.dispose();
     };
@@ -248,7 +263,7 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
           <p className="text-red-300 text-sm">{errorMessage}</p>
         </div>
       )}
-      <div data-testid="terminal-container" ref={terminalRef} className="flex-1" />
+      <div data-testid="terminal-container" ref={terminalRef} className="flex-1 min-h-0 overflow-hidden" />
       <Toolbar onKeyPress={handleKeyPress} />
     </div>
   );
