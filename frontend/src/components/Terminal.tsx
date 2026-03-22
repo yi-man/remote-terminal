@@ -114,7 +114,25 @@ export function Terminal({ connectionId, onDisconnect }: TerminalProps) {
     const fromSessionStorage = sessionStorage.getItem(forceNewKey) === '1';
     const forceNew = fromMemory || fromSessionStorage;
     if (forceNew) sessionStorage.removeItem(forceNewKey);
-    connect(terminal.rows, terminal.cols, { forceNew });
+
+    // FitAddon.proposeDimensions() returns undefined when cell dimensions
+    // are 0 (before xterm's first render). Poll until the renderer is
+    // ready, then fit and connect with correct dimensions.
+    let initRetries = 0;
+    const tryInitialFit = () => {
+      if (isDisposedRef.current) return;
+      const dims = fitAddon.proposeDimensions();
+      if (dims) {
+        doFit();
+        connect(terminal.rows, terminal.cols, { forceNew });
+      } else if (initRetries < 20) {
+        initRetries++;
+        setTimeout(tryInitialFit, 50);
+      } else {
+        connect(terminal.rows, terminal.cols, { forceNew });
+      }
+    };
+    requestAnimationFrame(tryInitialFit);
 
     return () => {
       isDisposedRef.current = true;
